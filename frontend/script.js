@@ -1,7 +1,7 @@
 const form = document.getElementById("customerForm");
 const message = document.getElementById("message");
 
-form.addEventListener("submit", function(event) {
+form.addEventListener("submit", async function(event) {
 
     event.preventDefault();
 
@@ -22,16 +22,40 @@ form.addEventListener("submit", function(event) {
         return;
     }
 
-    // temporary, later we will send the data to the backend
-    showSuccess("Customer added successfully!");
+    const customer = {
+        name: name,
+        address: address,
+        telephone: phone,
+        email: email
+    };
 
-    console.log("Customer information:");
-    console.log("Name:", name);
-    console.log("Address:", address);
-    console.log("Phone:", phone);
-    console.log("Email:", email);
+    try {
 
-    form.reset();
+        const response = await fetch("http://127.0.0.1:5000/customers", {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify(customer)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showSuccess(result.message);
+            form.reset();
+        } else {
+            showError(result.message);
+        }
+
+    } catch (error) {
+
+        console.error(error);
+        showError("Could not connect to the server.");
+
+    }
 });
 
 
