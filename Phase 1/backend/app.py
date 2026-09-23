@@ -23,6 +23,7 @@ def add_customer():
 
     # Make sure all information was provided
     if not name or not address or not telephone or not email:
+        h.trigger_failure()
         return jsonify({
             "success": False,
             "message": "All fields are required."
@@ -49,12 +50,14 @@ def add_customer():
 
     except sqlite3.IntegrityError:
         
-        h.trigger_failure()
         
+        h.trigger_failure()
         return jsonify({
             "success": False,
             "message": "A customer with this email already exists."
         }), 400
+        
+        
 
     except Exception as error:
 
@@ -69,4 +72,4 @@ def add_customer():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)

@@ -25,7 +25,7 @@ def trigger_success():
     all_off()
     GPIO.output(BLUE_LED, GPIO.HIGH)
     print("Operation Success! Blue LED is ON.")
-    sleep(3)
+    sleep(1)
     all_off()
 
 def trigger_failure():
@@ -34,6 +34,6 @@ def trigger_failure():
     GPIO.output(RED_LED, GPIO.HIGH)
     GPIO.output(BUZZER, GPIO.HIGH)
     print("Operation Failed! Red LED and Buzzer are ON.")
-    sleep(3)
+    sleep(1)
     all_off()
 
