@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify # type: ignore
 from flask_cors import CORS # type: ignore
 import sqlite3
 import os
+import hardware as h
 
 app = Flask(__name__)
 CORS(app)
@@ -39,13 +40,17 @@ def add_customer():
         connection.commit()
         connection.close()
 
+        h.trigger_success()
+            
         return jsonify({
             "success": True,
             "message": "Customer added successfully!"
         }), 201
 
     except sqlite3.IntegrityError:
-
+        
+        h.trigger_failure()
+        
         return jsonify({
             "success": False,
             "message": "A customer with this email already exists."
@@ -54,7 +59,9 @@ def add_customer():
     except Exception as error:
 
         print(error)
-
+        
+        h.trigger_failure()
+        
         return jsonify({
             "success": False,
             "message": "An unexpected error occurred."
