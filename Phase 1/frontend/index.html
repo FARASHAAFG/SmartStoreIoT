@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -17,7 +18,8 @@
         <h1>Smart Store</h1>
         <h2>Customer Registration</h2>
 
-        <form id="customerForm">
+        <!-- novalidate lets Flask handle validation -->
+        <form id="customerForm" novalidate>
 
             <label for="name">Full Name</label>
             <input
@@ -25,7 +27,6 @@
                 id="name"
                 name="name"
                 placeholder="Enter full name"
-                required
             >
 
             <label for="address">Address</label>
@@ -34,7 +35,6 @@
                 id="address"
                 name="address"
                 placeholder="Enter address"
-                required
             >
 
             <label for="phone">Telephone Number</label>
@@ -43,7 +43,6 @@
                 id="phone"
                 name="phone"
                 placeholder="Enter telephone number"
-                required
             >
 
             <label for="email">Email Address</label>
@@ -52,14 +51,13 @@
                 id="email"
                 name="email"
                 placeholder="Enter email address"
-                required
             >
 
             <button type="submit">Add Customer</button>
 
         </form>
 
-        <p id="message"></p>
+        <p id="message" role="status" aria-live="polite"></p>
 
     </div>
 

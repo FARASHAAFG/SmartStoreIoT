@@ -2,38 +2,51 @@ import RPi.GPIO as GPIO
 from time import sleep
 
 # Define physical BOARD pin numbers
-BLUE_LED = 13  # IO 27
-RED_LED = 16   # IO 23
-BUZZER = 40    # IO 21
+BLUE_LED = 13  # IO27
+RED_LED = 16   # IO23
+BUZZER = 40    # IO21
 
-GPIO.setwarnings(False)     # Disable warnings
-GPIO.setmode(GPIO.BOARD)    # Set pin numbering system
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BOARD)
 
 # Setup pins as outputs
-GPIO.setup(BLUE_LED, GPIO.OUT)
-GPIO.setup(RED_LED, GPIO.OUT)
-GPIO.setup(BUZZER, GPIO.OUT)
+GPIO.setup(BLUE_LED, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(RED_LED, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(BUZZER, GPIO.OUT, initial=GPIO.LOW)
+
 
 def all_off():
-    """Turns off all indicators."""
+    """Turn off both LEDs and the buzzer."""
     GPIO.output(BLUE_LED, GPIO.LOW)
     GPIO.output(RED_LED, GPIO.LOW)
     GPIO.output(BUZZER, GPIO.LOW)
 
+
 def trigger_success():
-    """Turns on the blue LED for success."""
+    """Blue LED turns on for 1 second."""
     all_off()
+
     GPIO.output(BLUE_LED, GPIO.HIGH)
     print("Operation Success! Blue LED is ON.")
+
     sleep(1)
     all_off()
+
 
 def trigger_failure():
-    """Turns on the red LED and activates the buzzer for an error."""
-    all_off()
-    GPIO.output(RED_LED, GPIO.HIGH)
-    GPIO.output(BUZZER, GPIO.HIGH)
-    print("Operation Failed! Red LED and Buzzer are ON.")
-    sleep(1)
+    """Red LED and buzzer activate for 1 second."""
     all_off()
 
+    GPIO.output(RED_LED, GPIO.HIGH)
+
+    # Generate a 1000 Hz tone with 50% duty cycle
+    buzzer_pwm = GPIO.PWM(BUZZER, 1000)
+
+    try:
+        buzzer_pwm.start(50)
+        print("Operation Failed! Red LED and Buzzer are ON.")
+
+        sleep(1)
+    finally:
+        buzzer_pwm.stop()
+        all_off()
