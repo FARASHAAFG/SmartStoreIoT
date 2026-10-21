@@ -1,0 +1,17 @@
+# Python virtual environments
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local environment and secrets
+.env
+.env.*
+
+# Local databases
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
