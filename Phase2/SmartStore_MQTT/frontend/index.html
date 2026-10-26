@@ -1,21 +1,25 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cold Room Dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<header class="top">
-  <h1>Dashboard</h1>
-  <div class="bar"><span id="fanState" class="badge fan">Fan off</span><button type="button" id="fanBtn">Turn fan on</button><p id="status" class="status" role="status">Connecting…</p></div>
-</header>
-<main id="fridges"></main>
-<div id="toasts" class="toasts" aria-live="assertive"></div>
-<script src="script.js"></script>
-</body>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Cold Room Dashboard</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet" />
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <header class="top">
+            <h1>Dashboard</h1>
+            <div class="bar">
+                <span id="fanState" class="badge fan">Fan off</span
+                ><button type="button" id="fanBtn">Turn fan on</button>
+                <p id="status" class="status" role="status">Connecting…</p>
+            </div>
+        </header>
+        <main id="fridges"></main>
+        <div id="toasts" class="toasts" aria-live="assertive"></div>
+        <script src="script.js"></script>
+    </body>
 </html>
