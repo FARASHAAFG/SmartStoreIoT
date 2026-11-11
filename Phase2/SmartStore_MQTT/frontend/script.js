@@ -1,4 +1,4 @@
-const BACKEND_URL = 'http://10.0.0.72:5000';
+const BACKEND_URL = 'http://172.20.10.10:5000';
 const REFRESH_EVERY_MS = 3000;
 const THERMOMETER_MIN_C = -10;
 const THERMOMETER_MAX_C = 40;
