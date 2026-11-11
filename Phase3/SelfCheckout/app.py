@@ -31,7 +31,17 @@ products = {
     "E20000333333333333333333": {
         "name": "Eggs",
         "price": 5.99
+    },
+    
+    "A00000000000000000004964": {
+    "name": "Milk",
+    "price": 4.99
+    },
+    "A00000000000000000004966": {
+    "name": "Bread",
+    "price": 3.49
     }
+    
 }
 
 @app.route("/scan", methods=["POST"])
