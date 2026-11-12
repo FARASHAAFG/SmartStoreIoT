@@ -1,0 +1,103 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartStore | Shopping Cart</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script src="script.js" defer></script>
+</head>
+<body>
+    <header class="cart-header">
+        <a href="index.html" class="brand">
+            <i data-lucide="shopping-basket"></i>
+            <span>SmartStore</span>
+        </a>
+
+        <nav class="cart-nav">
+            <a href="index.html">
+                <i data-lucide="house"></i> Home
+            </a>
+            <a href="#" class="nav-disabled" title="Coming soon">
+                <i data-lucide="user-round"></i> My Account
+            </a>
+        </nav>
+    </header>
+
+    <main class="cart-container">
+        <section class="cart-intro">
+            <div>
+                <span class="eyebrow">SELF CHECKOUT</span>
+                <h1>Your Shopping Cart</h1>
+                <p>Place your items in the checkout area. They'll appear here automatically.</p>
+            </div>
+        </section>
+
+        <div class="checkout-layout">
+            <section class="cart-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Scanned Products</h2>
+                        <p id="itemCount">0 items in your cart</p>
+                    </div>
+                    <i data-lucide="scan-line"></i>
+                </div>
+
+                <div id="cartItems" class="cart-items">
+                    <div class="empty-cart">
+                        <i data-lucide="shopping-cart"></i>
+                        <h3>Your cart is empty</h3>
+                        <p>Scan a product to get started.</p>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="summary-panel">
+                <h2>Order Summary</h2>
+
+                <div class="summary-row">
+                    <span>Items</span>
+                    <span id="summaryCount">0</span>
+                </div>
+
+                <div class="summary-row">
+                    <span>Subtotal</span>
+                    <span id="subtotal">$0.00</span>
+                </div>
+
+                <div class="summary-divider"></div>
+
+                <div class="summary-row summary-total">
+                    <span>Total</span>
+                    <span id="cartTotal">$0.00</span>
+                </div>
+
+                <p class="summary-note">
+                    Final taxes and payment will be handled at checkout.
+                </p>
+
+                <button id="checkoutBtn" class="checkout-btn" disabled>
+                    Proceed to Checkout
+                    <i data-lucide="arrow-right"></i>
+                </button>
+
+                <button id="clearCartBtn" class="clear-btn" disabled>
+                    <i data-lucide="trash-2"></i>
+                    Clear Cart
+                </button>
+
+
+            </aside>
+        </div>
+
+        <p id="cartMessage" class="cart-message" role="status"
+           aria-live="polite"></p>
+    </main>
+
+    <script>
+        if (window.lucide) lucide.createIcons();
+    </script>
+</body>
+</html>
