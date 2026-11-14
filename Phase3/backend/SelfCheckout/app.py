@@ -1,9 +1,24 @@
+import sys
+from pathlib import Path
 
+# Locate the parent backend directory
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+
+# Allow imports from backend/
+sys.path.insert(0, str(BACKEND_DIR))
+
+from database import DATABASE_PATH
+from customer_sales import init_customer_sales
 import json
+import os
 from pathlib import Path
 from threading import RLock
 
 from flask import Flask, request, jsonify, send_from_directory
+
+from database import DATABASE_PATH
+from customer_sales import init_customer_sales
+
 
 # File locations
 BASE_DIR = Path(__file__).resolve().parent
@@ -12,7 +27,20 @@ FRONTEND_DIR = BASE_DIR.parent.parent / "frontend"
 EPC_FILE = BASE_DIR / "discovered_epcs.txt"
 PRODUCT_FILE = BASE_DIR / "registered_products.json"
 
+
+# Initialize Flask
 app = Flask(__name__)
+
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
+
+if not app.config["SECRET_KEY"]:
+    raise RuntimeError("SECRET_KEY environment variable is missing.")
+
+init_customer_sales(
+    app,
+    database_path=DATABASE_PATH
+)
+
 lock = RLock()
 
 # Current shopping session
