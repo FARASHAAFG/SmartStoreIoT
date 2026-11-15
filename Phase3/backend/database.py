@@ -75,7 +75,7 @@ def create_database():
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS "transaction" (
                 transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
+                user_id INTEGER,
                 date TEXT NOT NULL,
                 total REAL NOT NULL CHECK (total >= 0),
                 points_earned INTEGER NOT NULL DEFAULT 0,

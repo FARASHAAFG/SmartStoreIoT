@@ -46,6 +46,26 @@ def get_db():
 def _json_error(message, status=400):
     return jsonify({"error": message}), status
 
+def normalize_card_uid(value):
+    """
+    Normalize an RFID card UID.
+
+    Example:
+      "A5 C7 4D 06" -> "A5C74D06"
+    """
+    if not isinstance(value, str):
+        return None
+
+    uid = value.replace(" ", "").replace(":", "").replace("-", "").upper()
+
+    if not uid or len(uid) > 32:
+        return None
+
+    if not all(character in "0123456789ABCDEF" for character in uid):
+        return None
+
+    return uid
+
 
 def login_required(function):
     @wraps(function)
@@ -55,6 +75,27 @@ def login_required(function):
         return function(*args, **kwargs)
     return wrapper
 
+def admin_required(function):
+    @wraps(function)
+    @login_required
+    def wrapper(*args, **kwargs):
+        connection = get_db()
+
+        try:
+            user = connection.execute(
+                "SELECT role FROM users WHERE user_id = ?",
+                (session["user_id"],),
+            ).fetchone()
+
+            if not user or user["role"] != 1:
+                return _json_error("Administrator access required.", 403)
+
+        finally:
+            connection.close()
+
+        return function(*args, **kwargs)
+
+    return wrapper
 
 def _public_user(row):
     return {
@@ -86,7 +127,8 @@ def register_customer():
     name = data.get("name")
     email = data.get("email")
     password = data.get("password")
-    card_id = data.get("card_id") or None
+    card_id = None
+    #card_id = data.get("card_id") or None
 
     if not isinstance(name, str) or not name.strip():
         return _json_error("Name is required.")
@@ -135,6 +177,103 @@ def register_customer():
     finally:
         connection.close()
 
+@customer_sales.post("/api/admin/customers/<int:user_id>/card")
+@admin_required
+def assign_customer_card(user_id):
+    data = request.get_json(silent=True) or {}
+
+    card_id = normalize_card_uid(data.get("card_id"))
+
+    if not card_id:
+        return _json_error("A valid RFID card UID is required.")
+
+    connection = get_db()
+
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+
+        customer = connection.execute(
+            """
+            SELECT user_id, name, role
+            FROM users
+            WHERE user_id = ?
+            """,
+            (user_id,),
+        ).fetchone()
+
+        if not customer or customer["role"] != 0:
+            connection.rollback()
+            return _json_error("Customer account not found.", 404)
+
+        existing_card = connection.execute(
+            "SELECT user_id FROM users WHERE card_id = ?",
+            (card_id,),
+        ).fetchone()
+
+        if existing_card:
+            connection.rollback()
+            return _json_error("This RFID card is already assigned.", 409)
+
+        connection.execute(
+            "UPDATE users SET card_id = ? WHERE user_id = ?",
+            (card_id, user_id),
+        )
+
+        connection.commit()
+
+        return jsonify({
+            "message": "RFID card assigned successfully.",
+            "customer": {
+                "user_id": customer["user_id"],
+                "name": customer["name"],
+                "card_id": card_id,
+            },
+        })
+
+    except sqlite3.Error:
+        connection.rollback()
+        current_app.logger.exception("Could not assign customer RFID card")
+        return _json_error("Could not assign RFID card.", 500)
+
+    finally:
+        connection.close()
+
+
+@customer_sales.post("/api/customer/card/scan")
+def scan_customer_card():
+    data = request.get_json(silent=True) or {}
+
+    card_id = normalize_card_uid(data.get("card_id"))
+
+    if not card_id:
+        return _json_error("A valid RFID card UID is required.")
+
+    connection = get_db()
+
+    try:
+        customer = connection.execute(
+            """
+            SELECT *
+            FROM users
+            WHERE card_id = ? AND role = 0
+            """,
+            (card_id,),
+        ).fetchone()
+
+        if not customer:
+            return _json_error("This RFID card is not assigned to a customer.", 404)
+
+        # Start a customer session after successful card recognition.
+        session.clear()
+        session["user_id"] = customer["user_id"]
+
+        return jsonify({
+            "message": "Customer recognized successfully.",
+            "customer": _public_user(customer),
+        })
+
+    finally:
+        connection.close()
 
 @customer_sales.post("/api/customer/login")
 def login_customer():
@@ -278,101 +417,308 @@ def customer_transaction_detail(transaction_id):
         connection.close()
 
 
+# @customer_sales.post("/api/sales/checkout")
+# @login_required
+# def complete_sale():
+#     """
+#     Record a completed/simulated checkout.
+
+#     Request JSON: {"items":[{"product_id": 1, "quantity": 2}, ...]}
+#     Prices are always read from the products table, not trusted from the browser.
+#     Call this only after the checkout/payment step has been approved.
+#     """
+#     data = request.get_json(silent=True) or {}
+#     items = data.get("items")
+#     if not isinstance(items, list) or not items:
+#         return _json_error("A non-empty items list is required.")
+
+#     quantities = {}
+#     for item in items:
+#         if not isinstance(item, dict):
+#             return _json_error("Each item must contain product_id and quantity.")
+#         try:
+#             product_id = int(item.get("product_id"))
+#             quantity = int(item.get("quantity"))
+#         except (TypeError, ValueError):
+#             return _json_error("Product IDs and quantities must be whole numbers.")
+#         if product_id <= 0 or quantity <= 0:
+#             return _json_error("Product IDs and quantities must be positive.")
+#         quantities[product_id] = quantities.get(product_id, 0) + quantity
+
+#     connection = get_db()
+#     try:
+#         connection.execute("BEGIN IMMEDIATE")
+#         total_cents = 0
+#         sale_lines = []
+
+#         for product_id, quantity in quantities.items():
+#             product = connection.execute(
+#                 """
+#                 SELECT product_id, name, price, stock
+#                 FROM products WHERE product_id = ?
+#                 """,
+#                 (product_id,),
+#             ).fetchone()
+#             if not product:
+#                 connection.rollback()
+#                 return _json_error(f"Product {product_id} was not found.", 404)
+#             if product["stock"] < quantity:
+#                 connection.rollback()
+#                 return _json_error(
+#                     f"Not enough stock for {product['name']}. Available: {product['stock']}.",
+#                     409,
+#                 )
+
+#             try:
+#                 price = Decimal(str(product["price"])).quantize(
+#                     Decimal("0.01"), rounding=ROUND_HALF_UP
+#                 )
+#             except InvalidOperation:
+#                 connection.rollback()
+#                 return _json_error(f"Invalid stored price for product {product_id}.", 500)
+
+#             line_cents = int((price * 100 * quantity).to_integral_value())
+#             total_cents += line_cents
+#             sale_lines.append((product_id, quantity, float(price)))
+
+#         total = total_cents / 100
+#         points_earned = total_cents // 100  # 1 point per full $1 spent
+#         sale_date = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+#         cursor = connection.execute(
+#             """
+#             INSERT INTO "transaction" (user_id, date, total, points_earned)
+#             VALUES (?, ?, ?, ?)
+#             """,
+#             (session["user_id"], sale_date, total, points_earned),
+#         )
+#         transaction_id = cursor.lastrowid
+
+#         for product_id, quantity, price in sale_lines:
+#             connection.execute(
+#                 """
+#                 INSERT INTO purchase_items
+#                     (product_id, transaction_id, quantity, price)
+#                 VALUES (?, ?, ?, ?)
+#                 """,
+#                 (product_id, transaction_id, quantity, price),
+#             )
+#             connection.execute(
+#                 "UPDATE products SET stock = stock - ? WHERE product_id = ?",
+#                 (quantity, product_id),
+#             )
+
+#         connection.execute(
+#             "UPDATE users SET points = points + ? WHERE user_id = ?",
+#             (points_earned, session["user_id"]),
+#         )
+#         connection.commit()
+
+#         return jsonify({
+#             "message": "Sale recorded successfully.",
+#             "transaction_id": transaction_id,
+#             "date": sale_date,
+#             "total": total,
+#             "points_earned": points_earned,
+#         }), 201
+#     except sqlite3.Error:
+#         connection.rollback()
+#         current_app.logger.exception("Could not record SmartStore sale")
+#         return _json_error("The sale could not be recorded.", 500)
+#     finally:
+#         connection.close()
+
+
 @customer_sales.post("/api/sales/checkout")
-@login_required
 def complete_sale():
     """
     Record a completed/simulated checkout.
 
-    Request JSON: {"items":[{"product_id": 1, "quantity": 2}, ...]}
-    Prices are always read from the products table, not trusted from the browser.
-    Call this only after the checkout/payment step has been approved.
+    Request JSON:
+    {
+        "items": [
+            {"product_id": 1, "quantity": 2}
+        ]
+    }
+
+    Membership is optional:
+    - Recognized customer session: purchase is linked to that customer.
+    - No recognized customer session: purchase is recorded as a guest sale.
+
+    Prices are always read from the database.
     """
+
     data = request.get_json(silent=True) or {}
     items = data.get("items")
+
     if not isinstance(items, list) or not items:
         return _json_error("A non-empty items list is required.")
 
+    # Combine quantities for repeated product IDs.
     quantities = {}
+
     for item in items:
         if not isinstance(item, dict):
-            return _json_error("Each item must contain product_id and quantity.")
+            return _json_error(
+                "Each item must contain product_id and quantity."
+            )
+
         try:
             product_id = int(item.get("product_id"))
             quantity = int(item.get("quantity"))
         except (TypeError, ValueError):
-            return _json_error("Product IDs and quantities must be whole numbers.")
+            return _json_error(
+                "Product IDs and quantities must be whole numbers."
+            )
+
         if product_id <= 0 or quantity <= 0:
-            return _json_error("Product IDs and quantities must be positive.")
+            return _json_error(
+                "Product IDs and quantities must be positive."
+            )
+
         quantities[product_id] = quantities.get(product_id, 0) + quantity
 
     connection = get_db()
+
     try:
+        # Determine whether a customer is attached to this purchase.
+        customer_id = session.get("user_id")
+
+        if customer_id is not None:
+            customer = connection.execute(
+                """
+                SELECT user_id, role
+                FROM users
+                WHERE user_id = ?
+                """,
+                (customer_id,),
+            ).fetchone()
+
+            # Only an existing customer account can receive points.
+            if not customer or customer["role"] != 0:
+                customer_id = None
+                session.pop("user_id", None)
+
         connection.execute("BEGIN IMMEDIATE")
+
         total_cents = 0
         sale_lines = []
 
+        # Validate products, prices, and available stock.
         for product_id, quantity in quantities.items():
+
             product = connection.execute(
                 """
                 SELECT product_id, name, price, stock
-                FROM products WHERE product_id = ?
+                FROM products
+                WHERE product_id = ?
                 """,
                 (product_id,),
             ).fetchone()
+
             if not product:
                 connection.rollback()
-                return _json_error(f"Product {product_id} was not found.", 404)
+                return _json_error(
+                    f"Product {product_id} was not found.",
+                    404
+                )
+
             if product["stock"] < quantity:
                 connection.rollback()
                 return _json_error(
-                    f"Not enough stock for {product['name']}. Available: {product['stock']}.",
-                    409,
+                    f"Not enough stock for {product['name']}. "
+                    f"Available: {product['stock']}.",
+                    409
                 )
 
             try:
                 price = Decimal(str(product["price"])).quantize(
-                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                    Decimal("0.01"),
+                    rounding=ROUND_HALF_UP
                 )
             except InvalidOperation:
                 connection.rollback()
-                return _json_error(f"Invalid stored price for product {product_id}.", 500)
+                return _json_error(
+                    f"Invalid stored price for product {product_id}.",
+                    500
+                )
 
-            line_cents = int((price * 100 * quantity).to_integral_value())
+            line_cents = int(
+                (price * 100 * quantity).to_integral_value()
+            )
+
             total_cents += line_cents
-            sale_lines.append((product_id, quantity, float(price)))
 
+            sale_lines.append(
+                (product_id, quantity, float(price))
+            )
+
+        # Calculate the final amount and loyalty points.
         total = total_cents / 100
-        points_earned = total_cents // 100  # 1 point per full $1 spent
-        sale_date = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
+        if customer_id is not None:
+            points_earned = total_cents // 100
+        else:
+            points_earned = 0
+
+        sale_date = datetime.now(timezone.utc).isoformat(
+            timespec="seconds"
+        )
+
+        # Create the transaction.
         cursor = connection.execute(
             """
-            INSERT INTO "transaction" (user_id, date, total, points_earned)
+            INSERT INTO "transaction"
+                (user_id, date, total, points_earned)
             VALUES (?, ?, ?, ?)
             """,
-            (session["user_id"], sale_date, total, points_earned),
+            (
+                customer_id,
+                sale_date,
+                total,
+                points_earned
+            ),
         )
+
         transaction_id = cursor.lastrowid
 
+        # Record each purchased product and update its stock.
         for product_id, quantity, price in sale_lines:
+
             connection.execute(
                 """
                 INSERT INTO purchase_items
                     (product_id, transaction_id, quantity, price)
                 VALUES (?, ?, ?, ?)
                 """,
-                (product_id, transaction_id, quantity, price),
+                (
+                    product_id,
+                    transaction_id,
+                    quantity,
+                    price
+                ),
             )
+
             connection.execute(
-                "UPDATE products SET stock = stock - ? WHERE product_id = ?",
+                """
+                UPDATE products
+                SET stock = stock - ?
+                WHERE product_id = ?
+                """,
                 (quantity, product_id),
             )
 
-        connection.execute(
-            "UPDATE users SET points = points + ? WHERE user_id = ?",
-            (points_earned, session["user_id"]),
-        )
+        # Award loyalty points only to registered customers.
+        if customer_id is not None:
+            connection.execute(
+                """
+                UPDATE users
+                SET points = points + ?
+                WHERE user_id = ?
+                """,
+                (points_earned, customer_id),
+            )
+
         connection.commit()
 
         return jsonify({
@@ -381,11 +727,20 @@ def complete_sale():
             "date": sale_date,
             "total": total,
             "points_earned": points_earned,
+            "customer_id": customer_id,
+            "guest_checkout": customer_id is None,
         }), 201
+
     except sqlite3.Error:
         connection.rollback()
-        current_app.logger.exception("Could not record SmartStore sale")
-        return _json_error("The sale could not be recorded.", 500)
+        current_app.logger.exception(
+            "Could not record SmartStore sale"
+        )
+        return _json_error(
+            "The sale could not be recorded.",
+            500
+        )
+
     finally:
         connection.close()
 

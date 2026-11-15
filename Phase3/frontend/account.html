@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>SmartStore | My Account</title>
+
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+</head>
+
+<body>
+
+    <main class="account-dashboard">
+
+        <header class="account-header">
+            <div>
+                <h1>My SmartStore Account</h1>
+                <p>Manage your membership and view your purchases.</p>
+            </div>
+
+            <nav class="account-nav">
+                <a href="index.html">Home</a>
+                <a href="cart.html">Shopping Cart</a>
+                <button type="button" id="logout-button" class="logout-btn">
+                    Log Out
+                </button>
+            </nav>
+        </header>
+
+        <section class="account-welcome">
+            <h2>Hello, <span id="customer-name">Customer</span>!</h2>
+            <p>Welcome to your customer dashboard.</p>
+            <p>
+                Membership number:
+                <strong id="membership-number">Loading...</strong>
+            </p>
+        </section>
+
+        <section class="account-stats">
+
+            <div class="account-stat-card">
+                <i data-lucide="award"></i>
+                <div>
+                    <p>Loyalty Points</p>
+                    <h2 id="customer-points">0</h2>
+                </div>
+            </div>
+
+            <div class="account-stat-card">
+                <i data-lucide="receipt"></i>
+                <div>
+                    <p>Total Purchases</p>
+                    <h2 id="transaction-count">0</h2>
+                </div>
+            </div>
+
+        </section>
+
+        <section class="account-history">
+
+            <div class="account-section-heading">
+                <div>
+                    <h2>Transaction History</h2>
+                    <p>Your previous SmartStore purchases.</p>
+                </div>
+            </div>
+
+            <div id="transaction-list">
+                <p class="history-message">Loading your transactions...</p>
+            </div>
+
+        </section>
+
+        <section id="transaction-details" class="account-history" hidden>
+            <div class="account-section-heading">
+                <div>
+                    <h2>Transaction Details</h2>
+                    <p id="detail-transaction-date"></p>
+                </div>
+
+                <button type="button" id="close-details" class="checkout-secondary">
+                    Close
+                </button>
+            </div>
+
+            <div id="transaction-items"></div>
+
+            <div class="receipt-total">
+                <span>Total</span>
+                <strong id="detail-total">$0.00</strong>
+            </div>
+
+            <p id="detail-points"></p>
+        </section>
+
+        <p id="dashboard-message" class="account-message"></p>
+
+        <p class="footer-text">
+            SmartStore IoT | Phase 3
+        </p>
+
+    </main>
+
+    <script src="account.js"></script>
+    <script>lucide.createIcons();</script>
+
+</body>
+</html>
