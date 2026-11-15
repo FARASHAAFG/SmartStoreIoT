@@ -17,6 +17,11 @@ sys.path.insert(0, str(BACKEND_DIR))
 
 from database import DATABASE_PATH
 from customer_sales import init_customer_sales
+
+# Membership card (ESP32 + RC522 over MQTT)
+from database import create_database
+import membership_mqtt
+
 # File locations
 BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = BASE_DIR.parent.parent / "frontend"
@@ -43,6 +48,9 @@ if not app.config["SECRET_KEY"]:
         "2. Set it: set SECRET_KEY=THE-KEY-GENERATED-FROM-PREVIOUS-LINE\n"
         "3. Start Flask: py app.py"
         )
+
+# Create the database tables if they don't exist yet
+create_database()
 
 init_customer_sales(
     app,
@@ -557,8 +565,18 @@ def load_products_from_database():
     finally:
         connection.close()
 
+# ========== MEMBERSHIP CARD (ESP32 + RC522 over MQTT) ==========
+
+@app.route("/api/membership/last-card", methods=["GET"])
+def last_membership_card():
+    return jsonify(membership_mqtt.get_last_card())
+
+
 # Load saved EPCs and product assignments
 load_data()
 
 if __name__ == "__main__":
+    # Listen for membership cards tapped on the ESP32 reader
+    membership_mqtt.start()
+
     app.run(host="0.0.0.0", port=5001)

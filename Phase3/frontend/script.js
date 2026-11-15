@@ -315,8 +315,8 @@ function startCheckout() {
             <div class="checkout-option">
                 <h3>Member Checkout</h3>
                 <p>
-                    Enter your membership card UID to associate this purchase
-                    with your customer account and earn points.
+                    Tap your membership card on the card reader, or enter its
+                    UID, to associate this purchase with your account and earn points.
                 </p>
 
                 <input
@@ -386,7 +386,47 @@ function startCheckout() {
     checkoutBtn.disabled = true;
     clearCartBtn.disabled = true;
 
+    // Listen for a card tapped on the ESP32 reader
+    watchMembershipCard();
+
     checkoutPanel.scrollIntoView({ behavior: "smooth" });
+}
+
+// When a card is tapped on the ESP32 reader (MQTT), fill in the UID and identify the member
+let cardWatcher = null;
+
+async function watchMembershipCard() {
+    clearInterval(cardWatcher);
+
+    // Ignore cards that were tapped before this checkout started
+    let lastScanId;
+
+    try {
+        const card = await apiRequest(`${API_URL}/membership/last-card`);
+        lastScanId = card.scan_id;
+    } catch (error) {
+        return; // the UID can still be typed in by hand
+    }
+
+    cardWatcher = setInterval(async () => {
+        // Stop listening once the customer leaves the membership step
+        if (checkoutStage !== "membership") {
+            clearInterval(cardWatcher);
+            return;
+        }
+
+        try {
+            const card = await apiRequest(`${API_URL}/membership/last-card`);
+
+            if (card.uid && card.scan_id !== lastScanId) {
+                lastScanId = card.scan_id;
+                document.getElementById("membershipUid").value = card.uid;
+                identifyMember();
+            }
+        } catch (error) {
+            // Try again on the next second
+        }
+    }, 1000);
 }
 
 // Identify a member using their card UID
@@ -759,6 +799,17 @@ function showReceipt(sale, purchasedItems, cartCleared) {
     points.textContent = `Points earned: ${sale.points_earned}`;
 
     details.appendChild(points);
+
+    // Receipt email (members only)
+    if (!sale.guest_checkout) {
+        const emailNote = document.createElement("p");
+
+        emailNote.textContent = sale.email_sent
+            ? `Receipt emailed to ${selectedCustomer?.email || "your email"}.`
+            : "The receipt could not be emailed.";
+
+        details.appendChild(emailNote);
+    }
 
     const itemsSection = document.createElement("div");
     itemsSection.className = "receipt-items";
