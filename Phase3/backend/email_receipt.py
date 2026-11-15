@@ -1,6 +1,7 @@
 
 import os
 import smtplib
+from datetime import datetime
 from email.message import EmailMessage
 
 
@@ -40,7 +41,8 @@ def send_purchase_receipt(
         "Here is your purchase receipt.",
         "",
         f"Transaction Number: #{transaction_id}",
-        f"Date: {sale_date}",
+        # sale_date is saved in UTC: show it in the Pi's local time
+        f"Date: {datetime.fromisoformat(sale_date).astimezone().strftime('%Y-%m-%d %H:%M:%S')}",
     ]
 
     if membership_number:

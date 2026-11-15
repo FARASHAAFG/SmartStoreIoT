@@ -848,6 +848,11 @@ function cancelCheckout() {
 
 async function resetCheckout() {
     try { await apiRequest(`${API_URL}/cart/new`, { method: "POST" }); } catch (e) {}
+
+    // Log out the member whose card was scanned, so the next customer
+    // can't see their account on the kiosk
+    try { await apiRequest(`${API_URL}/customer/logout`, { method: "POST" }); } catch (e) {}
+
     checkoutStage = "idle";
     selectedCustomer = null;
     orderSnapshot = [];

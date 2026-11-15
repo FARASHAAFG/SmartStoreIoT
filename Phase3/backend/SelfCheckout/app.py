@@ -20,8 +20,10 @@ from customer_sales import init_customer_sales
 from inventory import init_inventory  # product + inventory management (admin)
 
 # Membership card (ESP32 + RC522 over MQTT)
-from database import create_database
 import membership_mqtt
+
+# Creates all tables (including product_tags and receptions); safe to run every time
+from migrate_inventory import migrate
 
 # File locations
 BASE_DIR = Path(__file__).resolve().parent
@@ -51,7 +53,8 @@ if not app.config["SECRET_KEY"]:
         )
 
 # Create the database tables if they don't exist yet
-create_database()
+# (migrate() calls create_database() and also adds the inventory tables)
+migrate()
 
 init_customer_sales(
     app,
