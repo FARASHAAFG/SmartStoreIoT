@@ -31,7 +31,18 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
 
 if not app.config["SECRET_KEY"]:
-    raise RuntimeError("SECRET_KEY environment variable is missing.")
+    raise RuntimeError(
+        "SECRET_KEY environment variable is missing.\n"
+        "To configure it in PowerShell:\n"
+        '1. Generate a key: py -c "import secrets; print(secrets.token_hex(32))"\n'
+        '2. Set it: $env:SECRET_KEY = "YOUR_GENERATED_KEY"\n'
+        "3. Start Flask: py app.py"
+        "\n"
+        "To configure it in CMD:\n"
+        "1. Generate a key: py -c \"import secrets; print(secrets.token_hex(32))\"\n"
+        "2. Set it: set SECRET_KEY=THE-KEY-GENERATED-FROM-PREVIOUS-LINE\n"
+        "3. Start Flask: py app.py"
+        )
 
 init_customer_sales(
     app,
