@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>SmartStore | Login</title>
+    <title data-i18n="title_login">SmartStore | Login</title>
 
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 
+    <script src="i18n.js"></script>
     <script src="qol.js"></script>
 </head>
 
@@ -22,34 +23,34 @@
                 <i data-lucide="user"></i>
             </div>
 
-            <h1>Welcome Back</h1>
+            <h1 data-i18n="login_h1">Welcome Back</h1>
 
-            <p class="subtitle">
+            <p class="subtitle" data-i18n="login_sub">
                 Log in to access your SmartStore account.
             </p>
 
             <form id="login-form">
 
-                <label for="email">Email address</label>
+                <label for="email" data-i18n="email_label">Email address</label>
                 <input
                     type="email"
                     id="email"
                     name="email"
-                    placeholder="Enter your email"
+                    placeholder="Enter your email" data-i18n-placeholder="email_ph"
                     required
                 >
 
-                <label for="password">Password</label>
+                <label for="password" data-i18n="password_label">Password</label>
                 <input
                     type="password"
                     id="password"
                     name="password"
-                    placeholder="Enter your password"
+                    placeholder="Enter your password" data-i18n-placeholder="password_ph"
                     required
                 >
 
                 <button type="submit" class="primary-btn account-submit">
-                    Log In
+                    <span data-i18n="login_btn">Log In</span>
                     <i data-lucide="arrow-right"></i>
                 </button>
 
@@ -58,10 +59,10 @@
             <p id="form-message" class="account-message"></p>
 
             <div class="account-links">
-                <p>Don't have an account?</p>
-                <a href="register.html">Create an account</a>
+                <p data-i18n="no_account">Don't have an account?</p>
+                <a href="register.html" data-i18n="create_account">Create an account</a>
 
-                <a href="index.html">Back to home</a>
+                <a href="index.html" data-i18n="back_home">Back to home</a>
             </div>
 
         </section>

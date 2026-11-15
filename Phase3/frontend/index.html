@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>SmartStore | Welcome</title>
+    <title data-i18n="title_index">SmartStore | Welcome</title>
 
     <link rel="stylesheet" href="style.css">
 
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 
+    <script src="i18n.js"></script>
     <script src="qol.js"></script>
 </head>
 
@@ -23,9 +24,9 @@
                 <i data-lucide="shopping-basket"></i>
             </div>
 
-            <h1>Welcome to SmartStore</h1>
+            <h1 data-i18n="index_h1">Welcome to SmartStore</h1>
 
-            <p class="subtitle">
+            <p class="subtitle" data-i18n="index_sub">
                 Your smart, fast, and convenient shopping experience.
             </p>
 
@@ -33,34 +34,34 @@
 
                 <div class="feature">
                     <i data-lucide="scan-line"></i>
-                    <p>Automatic RFID Scanning</p>
+                    <p data-i18n="feat_rfid">Automatic RFID Scanning</p>
                 </div>
 
                 <div class="feature">
                     <i data-lucide="shopping-cart"></i>
-                    <p>Real-Time Shopping Cart</p>
+                    <p data-i18n="feat_cart">Real-Time Shopping Cart</p>
                 </div>
 
                 <div class="feature">
                     <i data-lucide="zap"></i>
-                    <p>Quick Self-Checkout</p>
+                    <p data-i18n="feat_checkout">Quick Self-Checkout</p>
                 </div>
 
             </div>
 
             <a href="cart.html" class="primary-btn">
-                Start Shopping
+                <span data-i18n="start_shopping">Start Shopping</span>
                 <i data-lucide="arrow-right"></i>
             </a>
 
             <div class="welcome-account-links">
-                <p>Already a member?</p>
+                <p data-i18n="already_member">Already a member?</p>
 
-                <a href="login.html">Log in to your account</a>
+                <a href="login.html" data-i18n="login_to_account">Log in to your account</a>
 
-                <p>New to SmartStore?</p>
+                <p data-i18n="new_to">New to SmartStore?</p>
 
-                <a href="register.html">Create an account</a>
+                <a href="register.html" data-i18n="create_account">Create an account</a>
             </div>
 
             <p class="footer-text">

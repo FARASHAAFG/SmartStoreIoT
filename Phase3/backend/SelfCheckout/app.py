@@ -277,6 +277,10 @@ def javascript():
 def qol_javascript():
     return send_from_directory(FRONTEND_DIR, "qol.js")
 
+@app.route("/i18n.js")
+def i18n_javascript():
+    return send_from_directory(FRONTEND_DIR, "i18n.js")
+
 
 # Admin: product + inventory management
 @app.route("/admin.html")

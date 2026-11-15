@@ -6,6 +6,7 @@ const API = "/api";
 
 const I18N = {
   en: {
+    title_admin: "SmartStore | Inventory", summary_label: "Summary",
     title: "Inventory Management", subtitle: "Products, tags and stock for the store.",
     nav_home: "Home", nav_account: "My Account",
     stat_products: "Products", stat_units: "Units in stock", stat_low: "Low stock",
@@ -63,6 +64,7 @@ const I18N = {
     err_no_product: "Select a product first (scan its UPC).",
   },
   fr: {
+    title_admin: "SmartStore | Stocks", summary_label: "Résumé",
     title: "Gestion des stocks", subtitle: "Produits, étiquettes et stock du magasin.",
     nav_home: "Accueil", nav_account: "Mon compte",
     stat_products: "Produits", stat_units: "Unités en stock", stat_low: "Stock faible",
@@ -121,22 +123,9 @@ const I18N = {
   },
 };
 
-let lang = "en";
-try { lang = localStorage.getItem("smartstore-lang") || "en"; } catch (e) {}
-
-function t(key, vars = {}) {
-  const text = (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
-  return text.replace(/\{(\w+)\}/g, (_, name) => (vars[name] ?? ""));
-}
-
-function translateStatic() {
-  document.documentElement.lang = lang;
-  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
-  document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
-    el.placeholder = t(el.dataset.i18nPlaceholder);
-  });
-  document.getElementById("lang-toggle").textContent = lang === "en" ? "FR" : "EN";
-}
+// Language handling is shared with every other page (i18n.js).
+SmartStore.addMessages(I18N);
+const t = SmartStore.t;
 
 /* ---------- small helpers ---------- */
 
@@ -157,8 +146,7 @@ function h(tag, props = {}, ...children) {
   return el;
 }
 
-const money = v => new Intl.NumberFormat(lang === "fr" ? "fr-CA" : "en-CA",
-  { style: "currency", currency: "CAD" }).format(Number(v) || 0);
+const money = SmartStore.money;
 
 function todayIso() {
   const d = new Date();
@@ -524,21 +512,18 @@ $("search").addEventListener("input", () => {
   searchTimer = setTimeout(() => loadProducts().catch(e => toast(e.message, true)), 250);
 });
 
-$("lang-toggle").addEventListener("click", () => {
-  lang = lang === "en" ? "fr" : "en";
-  try { localStorage.setItem("smartstore-lang", lang); } catch (e) {}
-  translateStatic();
+document.addEventListener("smartstore:languagechange", () => {
   productTags.relabel(); receiveTags.relabel();
   $("product-title").textContent = t(editingId ? "form_edit_title" : "form_add_title");
   showPicked();
   renderRows($("search").value.trim());
-  loadProducts().catch(() => {});
+  if (!$("adm-main").hidden) loadProducts().catch(() => {});
 });
 
 /* ---------- start ---------- */
 
 (async function start() {
-  translateStatic();
+  SmartStore.apply();
   try {
     await api("/admin/me");
   } catch (err) {

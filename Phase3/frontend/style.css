@@ -1660,3 +1660,11 @@ dialog small {
         display: none !important;
     }
 }
+
+/* Greeting shown on the cart page when a customer is logged in */
+.cart-intro .cart-greeting {
+    color: var(--brand-green-dark);
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+}

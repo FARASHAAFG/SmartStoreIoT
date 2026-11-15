@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartStore | Inventory</title>
+    <title data-i18n="title_admin">SmartStore | Inventory</title>
     <link rel="stylesheet" href="style.css">
 
+    <script src="i18n.js"></script>
     <script src="qol.js"></script>
 </head>
 <body>
@@ -18,13 +19,12 @@
     <nav class="adm-nav">
         <a href="index.html" data-i18n="nav_home">Home</a>
         <a href="account.html" data-i18n="nav_account">My Account</a>
-        <button type="button" id="lang-toggle" class="btn btn-ghost" aria-label="Language / Langue">FR</button>
     </nav>
 </header>
 
 <main class="adm-main" id="adm-main" hidden>
 
-    <section class="stats" aria-label="Summary">
+    <section class="stats" aria-label="Summary" data-i18n-aria-label="summary_label">
         <div class="stat"><span data-i18n="stat_products">Products</span><strong id="stat-products">0</strong></div>
         <div class="stat"><span data-i18n="stat_units">Units in stock</span><strong id="stat-units">0</strong></div>
         <div class="stat stat-warn"><span data-i18n="stat_low">Low stock</span><strong id="stat-low">0</strong></div>

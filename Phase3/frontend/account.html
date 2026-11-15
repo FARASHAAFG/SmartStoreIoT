@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>SmartStore | My Account</title>
+    <title data-i18n="title_account">SmartStore | My Account</title>
 
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 
+    <script src="i18n.js"></script>
     <script src="qol.js"></script>
 </head>
 
@@ -18,25 +19,25 @@
 
         <header class="account-header">
             <div>
-                <h1>My SmartStore Account</h1>
-                <p>Manage your membership and view your purchases.</p>
+                <h1 data-i18n="acct_h1">My SmartStore Account</h1>
+                <p data-i18n="acct_sub">Manage your membership and view your purchases.</p>
             </div>
 
             <nav class="account-nav">
-                <a href="index.html">Home</a>
-                <a href="cart.html">Shopping Cart</a>
-                <button type="button" id="logout-button" class="logout-btn">
+                <a href="index.html" data-i18n="nav_home">Home</a>
+                <a href="cart.html" data-i18n="nav_cart">Shopping Cart</a>
+                <button type="button" id="logout-button" class="logout-btn" data-i18n="nav_logout">
                     Log Out
                 </button>
             </nav>
         </header>
 
         <section class="account-welcome">
-            <h2>Hello, <span id="customer-name">Customer</span>!</h2>
-            <p>Welcome to your customer dashboard.</p>
+            <h2 id="customer-greeting" data-i18n="acct_hello" data-i18n-vars='{"name":"Customer"}'>Hello, Customer!</h2>
+            <p data-i18n="acct_welcome">Welcome to your customer dashboard.</p>
             <p>
-                Membership number:
-                <strong id="membership-number">Loading...</strong>
+                <span data-i18n="membership_number">Membership number:</span>
+                <strong id="membership-number" data-i18n="loading">Loading...</strong>
             </p>
         </section>
 
@@ -45,7 +46,7 @@
             <div class="account-stat-card">
                 <i data-lucide="award"></i>
                 <div>
-                    <p>Loyalty Points</p>
+                    <p data-i18n="loyalty_points">Loyalty Points</p>
                     <h2 id="customer-points">0</h2>
                 </div>
             </div>
@@ -53,7 +54,7 @@
             <div class="account-stat-card">
                 <i data-lucide="receipt"></i>
                 <div>
-                    <p>Total Purchases</p>
+                    <p data-i18n="total_purchases">Total Purchases</p>
                     <h2 id="transaction-count">0</h2>
                 </div>
             </div>
@@ -64,13 +65,13 @@
 
             <div class="account-section-heading">
                 <div>
-                    <h2>Transaction History</h2>
-                    <p>Your previous SmartStore purchases.</p>
+                    <h2 data-i18n="tx_history">Transaction History</h2>
+                    <p data-i18n="tx_history_sub">Your previous SmartStore purchases.</p>
                 </div>
             </div>
 
             <div id="transaction-list">
-                <p class="history-message">Loading your transactions...</p>
+                <p class="history-message" data-i18n="tx_loading">Loading your transactions...</p>
             </div>
 
         </section>
@@ -78,11 +79,11 @@
         <section id="transaction-details" class="account-history" hidden>
             <div class="account-section-heading">
                 <div>
-                    <h2>Transaction Details</h2>
+                    <h2 data-i18n="tx_details">Transaction Details</h2>
                     <p id="detail-transaction-date"></p>
                 </div>
 
-                <button type="button" id="close-details" class="checkout-secondary">
+                <button type="button" id="close-details" class="checkout-secondary" data-i18n="btn_close">
                     Close
                 </button>
             </div>
@@ -90,8 +91,8 @@
             <div id="transaction-items"></div>
 
             <div class="receipt-total">
-                <span>Total</span>
-                <strong id="detail-total">$0.00</strong>
+                <span data-i18n="total">Total</span>
+                <strong id="detail-total" data-money="0">$0.00</strong>
             </div>
 
             <p id="detail-points"></p>

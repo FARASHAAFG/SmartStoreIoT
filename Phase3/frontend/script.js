@@ -1,6 +1,10 @@
 
 const API_URL = "/api";
 
+// Shared language helpers (i18n.js). Text set through these keeps its key,
+// so it switches language by itself when the visitor toggles EN/FR.
+const { t, setText, setRaw, setMoney, setAttr, makeError, fromResponse, showError } = SmartStore;
+
 // Existing cart elements
 const cartItems = document.getElementById("cartItems");
 const itemCount = document.getElementById("itemCount");
@@ -25,13 +29,34 @@ let selectedCustomer = null;
 // GENERAL HELPERS
 // --------------------------------------------------
 
-function money(value) {
-    return "$" + Number(value).toFixed(2);
+const money = SmartStore.money;
+
+// Show a message (a translation key) under the cart.
+function showMessage(key, error = false, vars) {
+    setText(cartMessage, key, vars);
+    cartMessage.classList.toggle("error", error);
 }
 
-function showMessage(message, error = false) {
-    cartMessage.textContent = message;
-    cartMessage.classList.toggle("error", error);
+// Show an error (translated when possible) under the cart.
+function showFailure(error) {
+    showError(cartMessage, error);
+    cartMessage.classList.add("error");
+}
+
+function clearMessage() {
+    setRaw(cartMessage, "");
+    cartMessage.classList.remove("error");
+}
+
+// Set a status line inside a checkout panel.
+function setFeedback(element, key, error = false) {
+    setText(element, key);
+    element.classList.toggle("error", error);
+}
+
+function setFeedbackError(element, err) {
+    showError(element, err);
+    element.classList.add("error");
 }
 
 function createIcon(name) {
@@ -46,7 +71,7 @@ function refreshIcons() {
     }
 }
 
-async function apiRequest(url, options = {}) {
+async function apiRequest(url, options = {}, fallbackKey) {
     const response = await fetch(url, {
         ...options,
         credentials: "same-origin"
@@ -61,9 +86,7 @@ async function apiRequest(url, options = {}) {
     }
 
     if (!response.ok) {
-        throw new Error(
-            data.message || data.error || "Something went wrong."
-        );
+        throw fromResponse(data, fallbackKey || "err_generic");
     }
 
     return data;
@@ -86,6 +109,12 @@ const checkoutLayout = document.querySelector(".checkout-layout");
 
 checkoutLayout.insertAdjacentElement("afterend", checkoutPanel);
 checkoutPanel.insertAdjacentElement("afterend", receiptPanel);
+
+// Fill a checkout panel from a template that uses data-i18n attributes.
+function setPanel(html) {
+    checkoutPanel.innerHTML = html;
+    SmartStore.apply(checkoutPanel);
+}
 
 // --------------------------------------------------
 // RFID CART DISPLAY
@@ -118,12 +147,11 @@ function renderCart(data) {
     const items = data.items || [];
     const groups = groupProducts(items);
 
-    itemCount.textContent =
-        `${items.length} item${items.length === 1 ? "" : "s"} in your cart`;
+    setText(itemCount, "items_in_cart", { n: items.length });
 
     summaryCount.textContent = items.length;
-    subtotal.textContent = money(data.total);
-    cartTotal.textContent = money(data.total);
+    setMoney(subtotal, data.total);
+    setMoney(cartTotal, data.total);
 
     checkoutBtn.disabled =
         items.length === 0 || checkoutStage !== "idle";
@@ -138,10 +166,10 @@ function renderCart(data) {
         empty.className = "empty-cart";
 
         const heading = document.createElement("h3");
-        heading.textContent = "Your cart is empty";
+        setText(heading, "cart_empty_h");
 
         const paragraph = document.createElement("p");
-        paragraph.textContent = "Scan a product to get started.";
+        setText(paragraph, "cart_empty_p");
 
         empty.append(
             createIcon("shopping-cart"),
@@ -166,23 +194,21 @@ function renderCart(data) {
             name.textContent = product.name;
 
             const quantity = document.createElement("p");
-            quantity.textContent =
-                `${money(product.price)} each · Qty: ${product.epcs.length}`;
+            setText(quantity, "each_qty", {
+                price: product.price,
+                n: product.epcs.length
+            });
 
             details.append(name, quantity);
 
             const price = document.createElement("span");
             price.className = "product-price";
-            price.textContent =
-                money(product.price * product.epcs.length);
+            setMoney(price, product.price * product.epcs.length);
 
             const remove = document.createElement("button");
             remove.className = "remove-btn";
-            remove.title = "Remove one item";
-            remove.setAttribute(
-                "aria-label",
-                `Remove one ${product.name}`
-            );
+            setAttr(remove, "title", "remove_one");
+            setAttr(remove, "aria-label", "remove_one_named", { name: product.name });
 
             remove.appendChild(createIcon("minus"));
 
@@ -215,7 +241,7 @@ async function loadCart() {
         const snapshot = JSON.stringify(data);
 
         if (connectionErrorShown) {
-            showMessage("");
+            clearMessage();
             connectionErrorShown = false;
         }
 
@@ -225,10 +251,7 @@ async function loadCart() {
         }
     } catch (error) {
         if (!connectionErrorShown) {
-            showMessage(
-                "We're having trouble updating your cart. Please ask for assistance.",
-                true
-            );
+            showMessage("err_cart_trouble", true);
 
             connectionErrorShown = true;
         }
@@ -250,10 +273,10 @@ async function removeProduct(epc) {
             body: JSON.stringify({ epc })
         });
 
-        showMessage("Item removed from your cart.");
+        showMessage("msg_removed");
         lastCart = null;
     } catch (error) {
-        showMessage(error.message, true);
+        showFailure(error);
     } finally {
         busy = false;
         await loadCart();
@@ -264,9 +287,7 @@ async function removeProduct(epc) {
 async function clearCart() {
     if (busy || checkoutStage !== "idle") return;
 
-    const confirmed = confirm(
-        "Are you sure you want to remove all items from your cart?"
-    );
+    const confirmed = confirm(t("confirm_clear"));
 
     if (!confirmed) return;
 
@@ -277,10 +298,10 @@ async function clearCart() {
             method: "POST"
         });
 
-        showMessage("Your cart has been cleared.");
+        showMessage("msg_cleared");
         lastCart = null;
     } catch (error) {
-        showMessage(error.message, true);
+        showFailure(error);
     } finally {
         busy = false;
         await loadCart();
@@ -295,7 +316,7 @@ clearCartBtn.addEventListener("click", clearCart);
 
 function startCheckout() {
     if (!currentCart || !currentCart.items || currentCart.items.length === 0) {
-        showMessage("Scan at least one product before checking out.", true);
+        showMessage("msg_scan_first", true);
         return;
     }
 
@@ -305,25 +326,20 @@ function startCheckout() {
     checkoutPanel.classList.remove("hidden");
     receiptPanel.classList.add("hidden");
 
-    checkoutPanel.innerHTML = `
-        <h2>Before You Pay</h2>
-        <p class="checkout-description">
-            Scan your membership card to earn points, or continue as a guest.
-        </p>
+    setPanel(`
+        <h2 data-i18n="co_before_pay"></h2>
+        <p class="checkout-description" data-i18n="co_before_desc"></p>
 
         <div class="checkout-options">
             <div class="checkout-option">
-                <h3>Member Checkout</h3>
-                <p>
-                    Tap your membership card on the card reader, or enter its
-                    UID, to associate this purchase with your account and earn points.
-                </p>
+                <h3 data-i18n="co_member_h"></h3>
+                <p data-i18n="co_member_p"></p>
 
                 <input
                     type="text"
                     id="membershipUid"
                     class="checkout-input"
-                    placeholder="Enter RFID card UID"
+                    data-i18n-placeholder="co_uid_ph"
                     autocomplete="off"
                 >
 
@@ -331,25 +347,20 @@ function startCheckout() {
                     type="button"
                     id="scanMembershipBtn"
                     class="checkout-action"
-                >
-                    Identify Membership
-                </button>
+                    data-i18n="co_identify"
+                ></button>
             </div>
 
             <div class="checkout-option">
-                <h3>Guest Checkout</h3>
-                <p>
-                    Continue without a membership account.
-                    Guest purchases do not earn membership points.
-                </p>
+                <h3 data-i18n="co_guest_h"></h3>
+                <p data-i18n="co_guest_p"></p>
 
                 <button
                     type="button"
                     id="guestCheckoutBtn"
                     class="checkout-action checkout-secondary"
-                >
-                    Continue as Guest
-                </button>
+                    data-i18n="co_guest_btn"
+                ></button>
             </div>
         </div>
 
@@ -361,11 +372,10 @@ function startCheckout() {
                 type="button"
                 id="cancelCheckoutBtn"
                 class="checkout-action checkout-secondary"
-            >
-                Back to Cart
-            </button>
+                data-i18n="co_back_cart"
+            ></button>
         </div>
-    `;
+    `);
 
     document.getElementById("scanMembershipBtn")
         .addEventListener("click", identifyMember);
@@ -438,17 +448,15 @@ async function identifyMember() {
     const cardId = uidInput.value.trim();
 
     if (!cardId) {
-        feedback.textContent = "Please enter your membership card UID.";
-        feedback.classList.add("error");
+        setFeedback(feedback, "co_enter_uid", true);
         return;
     }
 
     button.disabled = true;
-    feedback.classList.remove("error");
-    feedback.textContent = "Checking membership card...";
+    setFeedback(feedback, "co_checking");
 
     try {
-        const data = await apiRequest(
+        await apiRequest(
             `${API_URL}/customer/card/scan`,
             {
                 method: "POST",
@@ -456,23 +464,21 @@ async function identifyMember() {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({ card_id: cardId })
-            }
+            },
+            "co_not_recognized"
         );
 
-        //selectedCustomer = data.customer || null;
         // Retrieve the recognized customer's profile
         const profile = await apiRequest(`${API_URL}/customer/me`);
 
         selectedCustomer = profile.customer;
 
-        feedback.textContent = "Membership recognized successfully.";
+        setFeedback(feedback, "co_recognized");
+        SmartStore.refreshSession?.();   // greet the recognized member
 
         showOrderConfirmation("member");
     } catch (error) {
-        feedback.textContent =
-            error.message || "Membership card could not be recognized.";
-
-        feedback.classList.add("error");
+        setFeedbackError(feedback, error);
         button.disabled = false;
     }
 }
@@ -483,8 +489,7 @@ async function continueAsGuest() {
     const button = document.getElementById("guestCheckoutBtn");
 
     button.disabled = true;
-    feedback.classList.remove("error");
-    feedback.textContent = "Preparing guest checkout...";
+    setFeedback(feedback, "co_preparing_guest");
 
     try {
         await apiRequest(`${API_URL}/customer/logout`, {
@@ -492,12 +497,10 @@ async function continueAsGuest() {
         });
 
         selectedCustomer = null;
+        SmartStore.refreshSession?.();   // the session was logged out
         showOrderConfirmation("guest");
     } catch (error) {
-        feedback.textContent =
-            "Unable to start guest checkout. Please try again.";
-
-        feedback.classList.add("error");
+        setFeedback(feedback, "co_guest_fail", true);
         button.disabled = false;
     }
 }
@@ -508,7 +511,7 @@ async function continueAsGuest() {
 
 function showOrderConfirmation(customerType) {
     if (!currentCart || !currentCart.items.length) {
-        showMessage("Your cart is empty.", true);
+        showMessage("cart_empty_h", true);
         cancelCheckout();
         return;
     }
@@ -522,55 +525,49 @@ function showOrderConfirmation(customerType) {
     checkoutStage = "confirmation";
 
     const itemCountForOrder = orderSnapshot.length;
+    const isMember = customerType === "member";
 
-    checkoutPanel.innerHTML = `
-        <h2>Confirm Your Order</h2>
+    setPanel(`
+        <h2 data-i18n="co_confirm_h"></h2>
 
-        <p class="checkout-description">
-            Please review your order before proceeding to simulated payment.
-        </p>
+        <p class="checkout-description" data-i18n="co_confirm_desc"></p>
 
         <div class="checkout-summary">
             <p>
-                <span>Customer type</span>
-                <strong>${customerType === "member" ? "Member" : "Guest"}</strong>
+                <span data-i18n="co_customer_type"></span>
+                <strong data-i18n="${isMember ? "co_member" : "co_guest"}"></strong>
             </p>
 
             <p>
-                <span>Number of items</span>
+                <span data-i18n="co_num_items"></span>
                 <strong>${itemCountForOrder}</strong>
             </p>
 
             <p class="checkout-total">
-                <span>Total</span>
-                <strong>${money(total)}</strong>
+                <span data-i18n="total"></span>
+                <strong data-money="${total}"></strong>
             </p>
         </div>
 
-        <p class="checkout-description">
-            ${customerType === "member"
-                ? "Your purchase will be associated with your membership account."
-                : "This purchase will not be associated with a membership account."}
-        </p>
+        <p class="checkout-description"
+           data-i18n="${isMember ? "co_member_note" : "co_guest_note"}"></p>
 
         <div class="checkout-actions">
             <button
                 type="button"
                 id="backToMembershipBtn"
                 class="checkout-action checkout-secondary"
-            >
-                Back
-            </button>
+                data-i18n="co_back"
+            ></button>
 
             <button
                 type="button"
                 id="proceedPaymentBtn"
                 class="checkout-action"
-            >
-                Continue to Payment
-            </button>
+                data-i18n="co_continue_pay"
+            ></button>
         </div>
-    `;
+    `);
 
     document.getElementById("backToMembershipBtn")
         .addEventListener("click", startCheckout);
@@ -593,23 +590,20 @@ function showPaymentStep() {
         0
     );
 
-    checkoutPanel.innerHTML = `
-        <h2>Payment</h2>
+    setPanel(`
+        <h2 data-i18n="pay_h"></h2>
 
-        <p class="checkout-description">
-            This is a simulated payment for the SmartStore project.
-            No real payment or bank transaction will take place.
-        </p>
+        <p class="checkout-description" data-i18n="pay_desc"></p>
 
         <div class="checkout-summary">
             <p>
-                <span>Payment method</span>
-                <strong>Simulated payment</strong>
+                <span data-i18n="pay_method"></span>
+                <strong data-i18n="pay_simulated"></strong>
             </p>
 
             <p class="checkout-total">
-                <span>Amount to pay</span>
-                <strong>${money(total)}</strong>
+                <span data-i18n="pay_amount"></span>
+                <strong data-money="${total}"></strong>
             </p>
         </div>
 
@@ -621,19 +615,17 @@ function showPaymentStep() {
                 type="button"
                 id="backToOrderBtn"
                 class="checkout-action checkout-secondary"
-            >
-                Back to Order
-            </button>
+                data-i18n="pay_back"
+            ></button>
 
             <button
                 type="button"
                 id="confirmPaymentBtn"
                 class="checkout-action"
-            >
-                Confirm Simulated Payment
-            </button>
+                data-i18n="pay_confirm"
+            ></button>
         </div>
-    `;
+    `);
 
     document.getElementById("backToOrderBtn")
         .addEventListener("click", () => {
@@ -661,7 +653,7 @@ async function completeCheckout() {
     const feedback = document.getElementById("paymentFeedback");
 
     button.disabled = true;
-    feedback.textContent = "Recording your purchase...";
+    setFeedback(feedback, "pay_recording");
 
     try {
         // Aggregate physical items by product_id.
@@ -672,9 +664,7 @@ async function completeCheckout() {
             const productId = Number(item.product_id);
 
             if (!productId) {
-                throw new Error(
-                    "A scanned product is missing its product ID."
-                );
+                throw makeError("err_missing_product_id");
             }
 
             groupedItems.set(
@@ -697,7 +687,7 @@ async function completeCheckout() {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({ items })
-        });
+        }, "err_purchase_failed");
 
         // The sale has been recorded successfully.
         // Now reset the RFID cart for the next customer.
@@ -719,10 +709,7 @@ async function completeCheckout() {
         showReceipt(sale, orderSnapshot, cartCleared);
 
     } catch (error) {
-        feedback.textContent =
-            error.message || "Unable to complete your purchase.";
-
-        feedback.classList.add("error");
+        setFeedbackError(feedback, error);
         button.disabled = false;
 
     } finally {
@@ -735,6 +722,14 @@ async function completeCheckout() {
 // CHECKOUT STEP 5: RECEIPT
 // --------------------------------------------------
 
+// Create an element whose text is a translation key.
+function textElement(tag, key, vars, className) {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    setText(element, key, vars);
+    return element;
+}
+
 function showReceipt(sale, purchasedItems, cartCleared) {
     checkoutPanel.classList.add("hidden");
     receiptPanel.classList.remove("hidden");
@@ -746,105 +741,69 @@ function showReceipt(sale, purchasedItems, cartCleared) {
     const success = document.createElement("div");
     success.className = "receipt-success";
 
-    success.appendChild(createIcon("circle-check"));
-
-    const heading = document.createElement("h2");
-    heading.textContent = "Purchase Successful!";
-
-    const message = document.createElement("p");
-    message.textContent =
-        "Your SmartStore transaction has been recorded.";
-
-    success.append(heading, message);
+    success.append(
+        createIcon("circle-check"),
+        textElement("h2", "rc_success"),
+        textElement("p", "rc_recorded")
+    );
 
     const details = document.createElement("div");
     details.className = "receipt-details";
 
-    const transaction = document.createElement("p");
-    transaction.textContent =
-        `Transaction #${sale.transaction_id}`;
+    details.append(
+        textElement("p", "tx_title", { id: sale.transaction_id }),
+        textElement("p", "rc_date", { date: sale.date })
+    );
 
-    const date = document.createElement("p");
-    date.textContent =
-        `Date: ${new Date(sale.date).toLocaleString()}`;
+    if (sale.guest_checkout) {
+        details.appendChild(textElement("p", "rc_customer_guest"));
+    } else {
+        details.appendChild(textElement("p", "rc_customer_member", {
+            name: selectedCustomer?.name || t("co_member")
+        }));
 
-    // const customer = document.createElement("p");
-    // customer.textContent =
-    //     `Customer: ${sale.guest_checkout ? "Guest" : "Member"}`;
-
-    // const points = document.createElement("p");
-    // points.textContent =
-    //     `Points earned: ${sale.points_earned}`;
-
-    // details.append(transaction, date, customer, points);
-
-    const customer = document.createElement("p");
-
-    customer.textContent = sale.guest_checkout
-      ? "Customer: Guest"
-      : `Customer: ${selectedCustomer?.name || "Member"}`;
-
-    details.append(transaction, date, customer);
-
-    // Display membership number for registered customers
-    if (!sale.guest_checkout && selectedCustomer) {
-      const membership = document.createElement("p");
-
-      membership.textContent = `Membership: ${selectedCustomer.membership_number}`;
-
-      details.appendChild(membership);
+        // Display membership number for registered customers
+        if (selectedCustomer) {
+            details.appendChild(textElement("p", "rc_membership", {
+                num: selectedCustomer.membership_number
+            }));
+        }
     }
 
-    const points = document.createElement("p");
-    points.textContent = `Points earned: ${sale.points_earned}`;
-
-    details.appendChild(points);
+    details.appendChild(textElement("p", "points_earned", { n: sale.points_earned }));
 
     // Receipt email (members only)
     if (!sale.guest_checkout) {
-        const emailNote = document.createElement("p");
-
-        emailNote.textContent = sale.email_sent
-            ? `Receipt emailed to ${selectedCustomer?.email || "your email"}.`
-            : "The receipt could not be emailed.";
-
-        details.appendChild(emailNote);
+        if (!sale.email_sent) {
+            details.appendChild(textElement("p", "rc_email_failed"));
+        } else if (selectedCustomer?.email) {
+            details.appendChild(textElement("p", "rc_emailed", { email: selectedCustomer.email }));
+        } else {
+            details.appendChild(textElement("p", "rc_emailed_generic"));
+        }
     }
 
     const itemsSection = document.createElement("div");
     itemsSection.className = "receipt-items";
-
-    const itemsHeading = document.createElement("h3");
-    itemsHeading.textContent = "Purchased Products";
-    itemsSection.appendChild(itemsHeading);
+    itemsSection.appendChild(textElement("h3", "rc_items_h"));
 
     for (const product of groupedProducts) {
         const row = document.createElement("div");
         row.className = "receipt-item";
 
         const description = document.createElement("span");
-        description.textContent =
-            `${product.name} × ${product.epcs.length}`;
+        description.textContent = `${product.name} × ${product.epcs.length}`;
 
         const price = document.createElement("strong");
-        price.textContent =
-            money(product.price * product.epcs.length);
+        setMoney(price, product.price * product.epcs.length);
 
         row.append(description, price);
         itemsSection.appendChild(row);
     }
 
-    const total = document.createElement("p");
-    total.className = "receipt-total";
-    total.textContent = `Total paid: ${money(sale.total)}`;
-
-    const note = document.createElement("p");
-    note.className = "checkout-feedback";
-    note.textContent = "Payment was simulated; no real payment was processed.";
-
-    const nextButton = document.createElement("button");
-    nextButton.className = "checkout-action";
-    nextButton.textContent = "Start New Shopping Session";
+    const total = textElement("p", "rc_total_paid", { amount: sale.total }, "receipt-total");
+    const note = textElement("p", "rc_simulated_note", null, "checkout-feedback");
+    const nextButton = textElement("button", "rc_new_session", null, "checkout-action");
     nextButton.addEventListener("click", resetCheckout);
 
     receiptPanel.append(
@@ -857,18 +816,16 @@ function showReceipt(sale, purchasedItems, cartCleared) {
     );
 
     if (!cartCleared) {
-        const warning = document.createElement("p");
-        warning.className = "checkout-feedback error";
-        warning.textContent =
-            "Your sale was recorded, but the RFID cart could not be cleared. Please ask for assistance before the next customer.";
-
-        receiptPanel.insertBefore(warning, nextButton);
+        receiptPanel.insertBefore(
+            textElement("p", "rc_cart_not_cleared", null, "checkout-feedback error"),
+            nextButton
+        );
     }
 
     refreshIcons();
     receiptPanel.scrollIntoView({ behavior: "smooth" });
 
-    showMessage("Sale recorded successfully.");
+    showMessage("msg_sale_recorded");
 }
 
 // --------------------------------------------------
@@ -886,7 +843,7 @@ function cancelCheckout() {
         renderCart(currentCart);
     }
 
-    showMessage("Checkout cancelled. Your scanned items remain in the cart.");
+    showMessage("msg_checkout_cancelled");
 }
 
 async function resetCheckout() {
@@ -898,7 +855,8 @@ async function resetCheckout() {
     checkoutPanel.classList.add("hidden");
     receiptPanel.classList.add("hidden");
 
-    showMessage("Ready for the next customer.");
+    showMessage("msg_ready_next");
+    SmartStore.refreshSession?.();
 
     lastCart = null;
     loadCart();

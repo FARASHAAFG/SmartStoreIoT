@@ -1,5 +1,8 @@
 const API_URL = "/api";
 
+// Shared language helpers (i18n.js)
+const { setText, setRaw, setMoney, setDate, showError, makeError, fromResponse } = SmartStore;
+
 document.addEventListener("DOMContentLoaded", () => {
     const loginForm = document.getElementById("login-form");
     const registerForm = document.getElementById("register-form");
@@ -17,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
         logoutButton.addEventListener("click", logoutCustomer);
     }
 
-    if (document.getElementById("customer-name")) {
+    if (document.getElementById("customer-greeting")) {
         loadDashboard();
     }
 
@@ -31,15 +34,28 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-// Display a message on the current page.
-function showMessage(message, isError = false) {
-    const messageElement = document.getElementById("form-message")
+// Message element used by the current page.
+function messageElement() {
+    return document.getElementById("form-message")
         || document.getElementById("dashboard-message");
+}
 
-    if (!messageElement) return;
+// Display a message (a translation key) on the current page.
+function showMessage(key, isError = false, vars) {
+    const element = messageElement();
+    if (!element) return;
 
-    messageElement.textContent = message;
-    messageElement.classList.toggle("error", isError);
+    setText(element, key, vars);
+    element.classList.toggle("error", isError);
+}
+
+// Display an error (translated when possible) on the current page.
+function showFailure(error, fallbackKey) {
+    const element = messageElement();
+    if (!element) return;
+
+    showError(element, error, fallbackKey);
+    element.classList.add("error");
 }
 
 
@@ -63,13 +79,15 @@ async function loginCustomer(event) {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.error || data.message || "Login failed.");
+            throw response.status === 401
+                ? makeError("err_login_failed")
+                : fromResponse(data, "err_login_generic");
         }
 
         window.location.href = data.customer && data.customer.role === 1 ? "admin.html" : "account.html";
 
     } catch (error) {
-        showMessage(error.message, true);
+        showFailure(error, "err_login_generic");
     }
 }
 
@@ -95,19 +113,20 @@ async function registerCustomer(event) {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.error || data.message || "Registration failed.");
+            throw fromResponse(data, "err_register_failed");
         }
 
         // Registration automatically logs the customer in.
         window.location.href = "account.html";
 
     } catch (error) {
-        showMessage(error.message, true);
+        showFailure(error, "err_register_failed");
     }
 }
 
 
 // LOAD CUSTOMER DASHBOARD
+// (The link to admin.html for administrators is added by qol.js.)
 async function loadDashboard() {
     try {
         const customerResponse = await fetch(`${API_URL}/customer/me`, {
@@ -122,21 +141,21 @@ async function loadDashboard() {
         const customerData = await customerResponse.json();
 
         if (!customerResponse.ok) {
-            throw new Error(customerData.error || "Could not load customer profile.");
+            throw fromResponse(customerData, "err_load_profile");
         }
 
         const customer = customerData.customer;
-        
-        if (customer.role === 1) {
-            const link = document.createElement("a");
-            link.href = "admin.html";
-            link.textContent = "Inventory (admin)";
-            document.querySelector(".account-nav").prepend(link);
-        }
 
-        document.getElementById("customer-name").textContent = customer.name;
-        document.getElementById("membership-number").textContent =
-            customer.membership_number || "Not assigned";
+        setText(document.getElementById("customer-greeting"), "acct_hello", {
+            name: customer.name
+        });
+
+        const membership = document.getElementById("membership-number");
+        if (customer.membership_number) {
+            setRaw(membership, customer.membership_number);
+        } else {
+            setText(membership, "not_assigned");
+        }
 
         document.getElementById("customer-points").textContent =
             customer.points ?? 0;
@@ -144,7 +163,7 @@ async function loadDashboard() {
         await loadTransactions();
 
     } catch (error) {
-        showMessage(error.message, true);
+        showFailure(error, "err_load_profile");
     }
 }
 
@@ -166,7 +185,7 @@ async function loadTransactions() {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.error || "Could not load transactions.");
+            throw fromResponse(data, "err_load_transactions");
         }
 
         const transactions = data.transactions || [];
@@ -179,7 +198,7 @@ async function loadTransactions() {
         if (transactions.length === 0) {
             const emptyMessage = document.createElement("p");
             emptyMessage.className = "history-message";
-            emptyMessage.textContent = "You have not made any purchases yet.";
+            setText(emptyMessage, "tx_empty");
             transactionList.appendChild(emptyMessage);
             return;
         }
@@ -192,21 +211,21 @@ async function loadTransactions() {
             information.className = "transaction-information";
 
             const title = document.createElement("h3");
-            title.textContent = `Transaction #${transaction.transaction_id}`;
+            setText(title, "tx_title", { id: transaction.transaction_id });
 
             const date = document.createElement("p");
-            date.textContent = formatDate(transaction.date);
+            setDate(date, transaction.date);
 
             const points = document.createElement("p");
-            points.textContent = `Points earned: ${transaction.points_earned}`;
+            setText(points, "points_earned", { n: transaction.points_earned });
 
             const total = document.createElement("strong");
-            total.textContent = formatMoney(transaction.total);
+            setMoney(total, transaction.total);
 
             const detailsButton = document.createElement("button");
             detailsButton.type = "button";
             detailsButton.className = "transaction-details-btn";
-            detailsButton.textContent = "View Details";
+            setText(detailsButton, "view_details");
 
             detailsButton.addEventListener("click", () => {
                 loadTransactionDetails(transaction.transaction_id);
@@ -223,7 +242,7 @@ async function loadTransactions() {
         });
 
     } catch (error) {
-        transactionList.textContent = error.message;
+        showError(transactionList, error, "err_load_transactions");
     }
 }
 
@@ -241,7 +260,7 @@ async function loadTransactionDetails(transactionId) {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.error || "Could not load transaction details.");
+            throw fromResponse(data, "err_load_details");
         }
 
         const detailsSection = document.getElementById("transaction-details");
@@ -249,14 +268,11 @@ async function loadTransactionDetails(transactionId) {
 
         itemsContainer.replaceChildren();
 
-        document.getElementById("detail-transaction-date").textContent =
-            formatDate(data.transaction.date);
-
-        document.getElementById("detail-total").textContent =
-            formatMoney(data.transaction.total);
-
-        document.getElementById("detail-points").textContent =
-            `Points earned: ${data.transaction.points_earned}`;
+        setDate(document.getElementById("detail-transaction-date"), data.transaction.date);
+        setMoney(document.getElementById("detail-total"), data.transaction.total);
+        setText(document.getElementById("detail-points"), "points_earned", {
+            n: data.transaction.points_earned
+        });
 
         (data.items || []).forEach(item => {
             const row = document.createElement("div");
@@ -266,7 +282,7 @@ async function loadTransactionDetails(transactionId) {
             name.textContent = `${item.product_name} × ${item.quantity}`;
 
             const lineTotal = document.createElement("strong");
-            lineTotal.textContent = formatMoney(item.line_total);
+            setMoney(lineTotal, item.line_total);
 
             row.append(name, lineTotal);
             itemsContainer.appendChild(row);
@@ -276,7 +292,7 @@ async function loadTransactionDetails(transactionId) {
         detailsSection.scrollIntoView({ behavior: "smooth" });
 
     } catch (error) {
-        showMessage(error.message, true);
+        showFailure(error, "err_load_details");
     }
 }
 
@@ -290,37 +306,12 @@ async function logoutCustomer() {
         });
 
         if (!response.ok) {
-            throw new Error("Could not log out. Please try again.");
+            throw makeError("err_logout");
         }
 
         window.location.href = "index.html";
 
     } catch (error) {
-        showMessage(error.message, true);
+        showFailure(error, "err_logout");
     }
-}
-
-
-// FORMATTING HELPERS
-function formatMoney(value) {
-    return new Intl.NumberFormat("en-CA", {
-        style: "currency",
-        currency: "CAD"
-    }).format(Number(value) || 0);
-}
-
-
-function formatDate(value) {
-    if (!value) return "Date unavailable";
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return value;
-    }
-
-    return date.toLocaleString("en-CA", {
-        dateStyle: "medium",
-        timeStyle: "short"
-    });
 }

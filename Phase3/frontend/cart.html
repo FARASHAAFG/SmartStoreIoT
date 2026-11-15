@@ -4,11 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartStore | Shopping Cart</title>
+    <title data-i18n="title_cart">SmartStore | Shopping Cart</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
     <script src="script.js" defer></script>
 
+    <script src="i18n.js"></script>
     <script src="qol.js"></script>
 </head>
 <body>
@@ -20,10 +21,10 @@
 
         <nav class="cart-nav">
             <a href="index.html">
-                <i data-lucide="house"></i> Home
+                <i data-lucide="house"></i> <span data-i18n="nav_home">Home</span>
             </a>
             <a href="account.html">
-                <i data-lucide="user-round"></i> My Account
+                <i data-lucide="user-round"></i> <span data-i18n="nav_account">My Account</span>
             </a>
         </nav>
     </header>
@@ -31,9 +32,9 @@
     <main class="cart-container">
         <section class="cart-intro">
             <div>
-                <span class="eyebrow">SELF CHECKOUT</span>
-                <h1>Your Shopping Cart</h1>
-                <p>Place your items in the checkout area. They'll appear here automatically.</p>
+                <span class="eyebrow" data-i18n="cart_eyebrow">SELF CHECKOUT</span>
+                <h1 data-i18n="cart_h1">Your Shopping Cart</h1>
+                <p data-i18n="cart_intro">Place your items in the checkout area. They'll appear here automatically.</p>
             </div>
         </section>
 
@@ -41,8 +42,8 @@
             <section class="cart-panel">
                 <div class="panel-heading">
                     <div>
-                        <h2>Scanned Products</h2>
-                        <p id="itemCount">0 items in your cart</p>
+                        <h2 data-i18n="scanned_products">Scanned Products</h2>
+                        <p id="itemCount" data-i18n="items_in_cart" data-i18n-vars='{"n":0}'>0 items in your cart</p>
                     </div>
                     <i data-lucide="scan-line"></i>
                 </div>
@@ -50,44 +51,44 @@
                 <div id="cartItems" class="cart-items">
                     <div class="empty-cart">
                         <i data-lucide="shopping-cart"></i>
-                        <h3>Your cart is empty</h3>
-                        <p>Scan a product to get started.</p>
+                        <h3 data-i18n="cart_empty_h">Your cart is empty</h3>
+                        <p data-i18n="cart_empty_p">Scan a product to get started.</p>
                     </div>
                 </div>
             </section>
 
             <aside class="summary-panel">
-                <h2>Order Summary</h2>
+                <h2 data-i18n="order_summary">Order Summary</h2>
 
                 <div class="summary-row">
-                    <span>Items</span>
+                    <span data-i18n="summary_items">Items</span>
                     <span id="summaryCount">0</span>
                 </div>
 
                 <div class="summary-row">
-                    <span>Subtotal</span>
-                    <span id="subtotal">$0.00</span>
+                    <span data-i18n="subtotal">Subtotal</span>
+                    <span id="subtotal" data-money="0">$0.00</span>
                 </div>
 
                 <div class="summary-divider"></div>
 
                 <div class="summary-row summary-total">
-                    <span>Total</span>
-                    <span id="cartTotal">$0.00</span>
+                    <span data-i18n="total">Total</span>
+                    <span id="cartTotal" data-money="0">$0.00</span>
                 </div>
 
-                <p class="summary-note">
+                <p class="summary-note" data-i18n="summary_note">
                     Final taxes and payment will be handled at checkout.
                 </p>
 
                 <button id="checkoutBtn" class="checkout-btn" disabled>
-                    Proceed to Checkout
+                    <span data-i18n="checkout_btn">Proceed to Checkout</span>
                     <i data-lucide="arrow-right"></i>
                 </button>
 
                 <button id="clearCartBtn" class="clear-btn" disabled>
                     <i data-lucide="trash-2"></i>
-                    Clear Cart
+                    <span data-i18n="clear_cart">Clear Cart</span>
                 </button>
 
 
