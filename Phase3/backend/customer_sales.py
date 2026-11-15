@@ -19,7 +19,7 @@ from functools import wraps
 
 from flask import Blueprint, current_app, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
-
+from email_receipt import send_purchase_receipt
 
 customer_sales = Blueprint("customer_sales", __name__)
 
@@ -719,7 +719,76 @@ def complete_sale():
                 (points_earned, customer_id),
             )
 
+        # connection.commit()
+
+        # return jsonify({
+        #     "message": "Sale recorded successfully.",
+        #     "transaction_id": transaction_id,
+        #     "date": sale_date,
+        #     "total": total,
+        #     "points_earned": points_earned,
+        #     "customer_id": customer_id,
+        #     "guest_checkout": customer_id is None,
+        # }), 201
+
+
+        # Save the transaction before attempting to send an email.
         connection.commit()
+
+        # Email receipts are only sent to registered customers.
+        email_sent = False
+
+        if customer_id is not None:
+
+            # Retrieve the customer's contact information.
+            customer_info = connection.execute(
+                """
+                SELECT name, email, membership_number
+                FROM users
+                WHERE user_id = ?
+                """,
+                (customer_id,)
+            ).fetchone()
+
+            # Retrieve the purchased products for the receipt.
+            receipt_items = connection.execute(
+                """
+                SELECT
+                    p.name,
+                    pi.quantity,
+                    pi.price,
+                    (pi.quantity * pi.price) AS line_total
+                FROM purchase_items AS pi
+                JOIN products AS p
+                    ON p.product_id = pi.product_id
+                WHERE pi.transaction_id = ?
+                ORDER BY pi.purchase_item_id
+                """,
+                (transaction_id,)
+            ).fetchall()
+
+            try:
+                if customer_info and customer_info["email"]:
+
+                    send_purchase_receipt(
+                        recipient_email=customer_info["email"],
+                        customer_name=customer_info["name"],
+                        transaction_id=transaction_id,
+                        sale_date=sale_date,
+                        total=total,
+                        points_earned=points_earned,
+                        items=[dict(item) for item in receipt_items],
+                        membership_number=customer_info["membership_number"]
+                    )
+
+                    email_sent = True
+
+            except Exception:
+                # Email failure must not undo a completed purchase.
+                current_app.logger.exception(
+                    "Could not send receipt for transaction #%s",
+                    transaction_id
+                )
 
         return jsonify({
             "message": "Sale recorded successfully.",
@@ -729,7 +798,9 @@ def complete_sale():
             "points_earned": points_earned,
             "customer_id": customer_id,
             "guest_checkout": customer_id is None,
+            "email_sent": email_sent
         }), 201
+
 
     except sqlite3.Error:
         connection.rollback()
