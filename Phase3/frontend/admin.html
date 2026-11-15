@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartStore | Inventory</title>
+    <link rel="stylesheet" href="style.css">
+
+    <script src="qol.js"></script>
+</head>
+<body>
+
+<header class="adm-header">
+    <div>
+        <h1 data-i18n="title">Inventory Management</h1>
+        <p data-i18n="subtitle">Products, tags and stock for the store.</p>
+    </div>
+    <nav class="adm-nav">
+        <a href="index.html" data-i18n="nav_home">Home</a>
+        <a href="account.html" data-i18n="nav_account">My Account</a>
+        <button type="button" id="lang-toggle" class="btn btn-ghost" aria-label="Language / Langue">FR</button>
+    </nav>
+</header>
+
+<main class="adm-main" id="adm-main" hidden>
+
+    <section class="stats" aria-label="Summary">
+        <div class="stat"><span data-i18n="stat_products">Products</span><strong id="stat-products">0</strong></div>
+        <div class="stat"><span data-i18n="stat_units">Units in stock</span><strong id="stat-units">0</strong></div>
+        <div class="stat stat-warn"><span data-i18n="stat_low">Low stock</span><strong id="stat-low">0</strong></div>
+        <div class="stat stat-bad"><span data-i18n="stat_out">Out of stock</span><strong id="stat-out">0</strong></div>
+        <div class="stat"><span data-i18n="stat_value">Stock value</span><strong id="stat-value">$0.00</strong></div>
+    </section>
+
+    <section class="toolbar">
+        <input type="search" id="search" data-i18n-placeholder="search_ph"
+               placeholder="Search name, category, UPC…" autocomplete="off">
+        <button type="button" id="btn-receive" class="btn btn-outline" data-i18n="btn_receive">Receive stock</button>
+        <button type="button" id="btn-add" class="btn btn-primary" data-i18n="btn_add">Add product</button>
+    </section>
+
+    <section class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th data-i18n="col_name">Name</th>
+                    <th data-i18n="col_category">Category</th>
+                    <th data-i18n="col_producer">Producer</th>
+                    <th data-i18n="col_upc">UPC</th>
+                    <th class="num" data-i18n="col_price">Price</th>
+                    <th class="num" data-i18n="col_stock">Stock</th>
+                    <th data-i18n="col_last">Last received</th>
+                    <th data-i18n="col_actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="product-rows"></tbody>
+        </table>
+        <p id="empty-note" class="empty" hidden></p>
+    </section>
+</main>
+
+<p id="denied" class="denied" hidden>
+    <span data-i18n="admin_denied">This page is for administrators only.</span>
+    <a href="login.html" data-i18n="go_login">Log in</a>
+</p>
+
+<!-- Add / edit product -->
+<dialog id="dlg-product">
+    <form id="form-product" novalidate>
+        <h2 id="product-title"></h2>
+
+        <div class="grid2">
+            <label><span data-i18n="f_name">Name</span>
+                <input id="f-name" maxlength="100" required></label>
+            <label><span data-i18n="f_category">Category</span>
+                <input id="f-category" maxlength="60" required></label>
+            <label><span data-i18n="f_producer">Producer company</span>
+                <input id="f-producer" maxlength="100" required></label>
+            <label><span data-i18n="f_price">Price</span>
+                <input id="f-price" type="number" min="0" step="0.01" inputmode="decimal" required></label>
+        </div>
+
+        <label><span data-i18n="f_upc">UPC (barcode)</span>
+            <input id="f-upc" maxlength="13" inputmode="numeric" autocomplete="off" required>
+            <small data-i18n="f_upc_hint">Scan the barcode or type up to 13 digits.</small></label>
+
+        <div id="product-tags-block">
+            <div class="tags" id="tags-product"></div>
+            <label><span data-i18n="f_date">Date received</span>
+                <input id="f-date-product" type="date"></label>
+        </div>
+
+        <p class="form-error" id="product-error" role="alert"></p>
+        <div class="dlg-actions">
+            <button type="button" class="btn btn-ghost" data-close data-i18n="btn_cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" data-i18n="btn_save">Save</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Receive stock -->
+<dialog id="dlg-receive">
+    <form id="form-receive" novalidate>
+        <h2 data-i18n="receive_title">Receive stock</h2>
+
+        <label><span data-i18n="receive_scan">Scan or type the product UPC</span>
+            <input id="r-upc" maxlength="13" inputmode="numeric" autocomplete="off"></label>
+        <p class="picked" id="r-picked"></p>
+
+        <div class="tags" id="tags-receive"></div>
+        <label><span data-i18n="f_date">Date received</span>
+            <input id="f-date-receive" type="date"></label>
+
+        <p class="form-error" id="receive-error" role="alert"></p>
+        <div class="dlg-actions">
+            <button type="button" class="btn btn-ghost" data-close data-i18n="btn_cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" data-i18n="btn_save">Save</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- History -->
+<dialog id="dlg-history">
+    <h2 data-i18n="history_title">Reception history</h2>
+    <p class="picked" id="history-name"></p>
+    <div class="table-wrap small"><table>
+        <thead><tr>
+            <th data-i18n="h_date">Date</th>
+            <th class="num" data-i18n="h_qty">Quantity</th>
+            <th data-i18n="h_note">Note</th>
+        </tr></thead>
+        <tbody id="history-rows"></tbody>
+    </table></div>
+    <div class="dlg-actions">
+        <button type="button" class="btn btn-ghost" data-close data-i18n="btn_close">Close</button>
+    </div>
+</dialog>
+
+<!-- Delete confirmation -->
+<dialog id="dlg-delete">
+    <h2 data-i18n="delete_title">Delete product?</h2>
+    <p id="delete-text"></p>
+    <div class="dlg-actions">
+        <button type="button" class="btn btn-ghost" data-close data-i18n="btn_cancel">Cancel</button>
+        <button type="button" id="confirm-delete" class="btn btn-danger" data-i18n="act_delete">Delete</button>
+    </div>
+</dialog>
+
+<div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+
+<script src="admin.js"></script>
+</body>
+</html>

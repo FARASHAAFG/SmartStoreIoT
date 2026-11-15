@@ -17,6 +17,7 @@ sys.path.insert(0, str(BACKEND_DIR))
 
 from database import DATABASE_PATH
 from customer_sales import init_customer_sales
+from inventory import init_inventory  # product + inventory management (admin)
 
 # Membership card (ESP32 + RC522 over MQTT)
 from database import create_database
@@ -53,6 +54,11 @@ if not app.config["SECRET_KEY"]:
 create_database()
 
 init_customer_sales(
+    app,
+    database_path=DATABASE_PATH
+)
+
+init_inventory(
     app,
     database_path=DATABASE_PATH
 )
@@ -266,6 +272,22 @@ def stylesheet():
 @app.route("/script.js")
 def javascript():
     return send_from_directory(FRONTEND_DIR, "script.js")
+
+@app.route("/qol.js")
+def qol_javascript():
+    return send_from_directory(FRONTEND_DIR, "qol.js")
+
+
+# Admin: product + inventory management
+@app.route("/admin.html")
+def admin_page():
+    return send_from_directory(FRONTEND_DIR, "admin.html")
+
+
+@app.route("/admin.js")
+def admin_javascript():
+    return send_from_directory(FRONTEND_DIR, "admin.js")
+
 
 
 # ========== RFID SCANNING ==========
@@ -540,18 +562,35 @@ def load_products_from_database():
     connection = get_database_connection()
 
     try:
+        # Every physical RFID tag maps to its product (one product, many tags).
+        # The second SELECT keeps products registered the old way (no tag row).
         rows = connection.execute("""
             SELECT
-                product_id,
-                name,
-                category,
-                price,
-                upc,
-                epc,
-                producer_company,
-                stock
-            FROM products
-            WHERE epc IS NOT NULL
+                p.product_id,
+                p.name,
+                p.category,
+                p.price,
+                p.upc,
+                t.epc AS epc,
+                p.producer_company,
+                p.stock
+            FROM product_tags AS t
+            JOIN products AS p ON p.product_id = t.product_id
+
+            UNION
+
+            SELECT
+                p.product_id,
+                p.name,
+                p.category,
+                p.price,
+                p.upc,
+                p.epc AS epc,
+                p.producer_company,
+                p.stock
+            FROM products AS p
+            WHERE p.epc IS NOT NULL
+              AND p.epc NOT IN (SELECT epc FROM product_tags)
         """).fetchall()
 
         products.clear()

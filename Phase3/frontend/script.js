@@ -889,7 +889,8 @@ function cancelCheckout() {
     showMessage("Checkout cancelled. Your scanned items remain in the cart.");
 }
 
-function resetCheckout() {
+async function resetCheckout() {
+    try { await apiRequest(`${API_URL}/cart/new`, { method: "POST" }); } catch (e) {}
     checkoutStage = "idle";
     selectedCustomer = null;
     orderSnapshot = [];

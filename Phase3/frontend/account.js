@@ -66,7 +66,7 @@ async function loginCustomer(event) {
             throw new Error(data.error || data.message || "Login failed.");
         }
 
-        window.location.href = "account.html";
+        window.location.href = data.customer && data.customer.role === 1 ? "admin.html" : "account.html";
 
     } catch (error) {
         showMessage(error.message, true);
@@ -126,6 +126,13 @@ async function loadDashboard() {
         }
 
         const customer = customerData.customer;
+        
+        if (customer.role === 1) {
+            const link = document.createElement("a");
+            link.href = "admin.html";
+            link.textContent = "Inventory (admin)";
+            document.querySelector(".account-nav").prepend(link);
+        }
 
         document.getElementById("customer-name").textContent = customer.name;
         document.getElementById("membership-number").textContent =

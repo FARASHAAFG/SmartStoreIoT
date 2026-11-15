@@ -1,7 +1,7 @@
 import sqlite3
 from werkzeug.security import generate_password_hash
 
-DATABASE_PATH = r"C:\Users\farwa\OneDrive\Documents\SmartStoreIoT\Phase3\database\smartstore.db"
+DATABASE_PATH = r"C:\Users\karim\OneDrive\Desktop\SmartStoreIoT\Phase3\database\smartstore.db"
 
 connection = sqlite3.connect(DATABASE_PATH)
 
