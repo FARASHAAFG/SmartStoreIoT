@@ -25,6 +25,7 @@ let connectionErrorShown = false;
 
 let checkoutStage = "idle";
 let orderSnapshot = [];
+let orderTotals = null;
 let selectedCustomer = null;
 
 // True when checkout skipped the membership step because the customer was already logged in
@@ -584,6 +585,7 @@ function showOrderConfirmation(customerType) {
     const gst = Number(currentCart.gst);
     const qst = Number(currentCart.qst);
     const total = Number(currentCart.total);
+    orderTotals = { subtotalAmount, gst, qst, total };
 
     checkoutStage = "confirmation";
 
@@ -660,14 +662,7 @@ function showOrderConfirmation(customerType) {
 function showPaymentStep() {
     checkoutStage = "payment";
 
-    const subtotalCents = orderSnapshot.reduce(
-        (sum, item) => sum + Math.round(Number(item.price) * 100),
-        0
-    );
-    const subtotalAmount = subtotalCents / 100;
-    const gst = Math.round(subtotalCents * 0.05) / 100;
-    const qst = Math.round(subtotalCents * 0.09975) / 100;
-    const total = subtotalAmount + gst + qst;
+    const { subtotalAmount, gst, qst, total } = orderTotals;
 
     setPanel(`
         <h2 data-i18n="pay_h"></h2>
@@ -938,6 +933,8 @@ function cancelCheckout() {
     checkoutStage = "idle";
     selectedCustomer = null;
     orderSnapshot = [];
+    orderTotals = null;
+    
 
     checkoutPanel.classList.add("hidden");
 
@@ -966,6 +963,7 @@ async function resetCheckout() {
     checkoutStage = "idle";
     selectedCustomer = null;
     orderSnapshot = [];
+    orderTotals = null;
 
     checkoutPanel.classList.add("hidden");
     receiptPanel.classList.add("hidden");
