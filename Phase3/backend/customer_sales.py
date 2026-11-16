@@ -43,8 +43,12 @@ def get_db():
     return connection
 
 
-def _json_error(message, status=400):
-    return jsonify({"error": message}), status
+def _json_error(message, status=400, code=None):
+    body = {"error": message}
+    if code:
+        # Machine-readable code: lets the front end show a translated message.
+        body["code"] = code
+    return jsonify(body), status
 
 def normalize_card_uid(value):
     """
@@ -71,7 +75,7 @@ def login_required(function):
     @wraps(function)
     def wrapper(*args, **kwargs):
         if "user_id" not in session:
-            return _json_error("Please log in to continue.", 401)
+            return _json_error("Please log in to continue.", 401, "login_required")
         return function(*args, **kwargs)
     return wrapper
 
@@ -88,7 +92,7 @@ def admin_required(function):
             ).fetchone()
 
             if not user or user["role"] != 1:
-                return _json_error("Administrator access required.", 403)
+                return _json_error("Administrator access required.", 403, "admin_required")
 
         finally:
             connection.close()
@@ -185,7 +189,7 @@ def assign_customer_card(user_id):
     card_id = normalize_card_uid(data.get("card_id"))
 
     if not card_id:
-        return _json_error("A valid RFID card UID is required.")
+        return _json_error("A valid RFID card UID is required.", 400, "invalid_card_uid")
 
     connection = get_db()
 
@@ -203,7 +207,7 @@ def assign_customer_card(user_id):
 
         if not customer or customer["role"] != 0:
             connection.rollback()
-            return _json_error("Customer account not found.", 404)
+            return _json_error("Customer account not found.", 404, "customer_not_found")
 
         existing_card = connection.execute(
             "SELECT user_id FROM users WHERE card_id = ?",
@@ -212,7 +216,7 @@ def assign_customer_card(user_id):
 
         if existing_card:
             connection.rollback()
-            return _json_error("This RFID card is already assigned.", 409)
+            return _json_error("This RFID card is already assigned.", 409, "card_taken")
 
         connection.execute(
             "UPDATE users SET card_id = ? WHERE user_id = ?",
@@ -233,8 +237,46 @@ def assign_customer_card(user_id):
     except sqlite3.Error:
         connection.rollback()
         current_app.logger.exception("Could not assign customer RFID card")
-        return _json_error("Could not assign RFID card.", 500)
+        return _json_error("Could not assign RFID card.", 500, "server_error")
 
+    finally:
+        connection.close()
+
+
+@customer_sales.get("/api/admin/customers")
+@admin_required
+def list_customers():
+    """
+    Customer accounts (role 0) for the admin "Link membership card" dialog.
+    Optional ?q= filters by name, email or membership number.
+    """
+    query = (request.args.get("q") or "").strip().lower()
+
+    sql = """
+        SELECT user_id, name, email, membership_number, card_id
+        FROM users
+        WHERE role = 0
+    """
+    params = []
+
+    if query:
+        # Escape LIKE wildcards so the search text is matched literally.
+        escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        sql += """
+            AND (lower(name) LIKE ? ESCAPE '\\'
+              OR lower(email) LIKE ? ESCAPE '\\'
+              OR lower(membership_number) LIKE ? ESCAPE '\\')
+        """
+        params = [pattern, pattern, pattern]
+
+    sql += " ORDER BY name COLLATE NOCASE, user_id LIMIT 50"
+
+    connection = get_db()
+
+    try:
+        rows = connection.execute(sql, params).fetchall()
+        return jsonify({"customers": [dict(row) for row in rows]})
     finally:
         connection.close()
 
@@ -246,7 +288,7 @@ def scan_customer_card():
     card_id = normalize_card_uid(data.get("card_id"))
 
     if not card_id:
-        return _json_error("A valid RFID card UID is required.")
+        return _json_error("A valid RFID card UID is required.", 400, "invalid_card_uid")
 
     connection = get_db()
 

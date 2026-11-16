@@ -157,6 +157,13 @@ async function loadDashboard() {
             setText(membership, "not_assigned");
         }
 
+        const cardStatus = document.getElementById("card-status");
+        if (customer.card_id) {
+            setText(cardStatus, "acct_card_linked", { last4: customer.card_id.slice(-4) });
+        } else {
+            setText(cardStatus, "acct_card_none");
+        }
+
         document.getElementById("customer-points").textContent =
             customer.points ?? 0;
 

@@ -36,6 +36,7 @@
         <input type="search" id="search" data-i18n-placeholder="search_ph"
                placeholder="Search name, category, UPC…" autocomplete="off">
         <button type="button" id="btn-receive" class="btn btn-outline" data-i18n="btn_receive">Receive stock</button>
+        <button type="button" id="btn-card" class="btn btn-outline" data-i18n="btn_card">Link membership card</button>
         <button type="button" id="btn-add" class="btn btn-primary" data-i18n="btn_add">Add product</button>
     </section>
 
@@ -112,6 +113,44 @@
             <input id="f-date-receive" type="date"></label>
 
         <p class="form-error" id="receive-error" role="alert"></p>
+        <div class="dlg-actions">
+            <button type="button" class="btn btn-ghost" data-close data-i18n="btn_cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" data-i18n="btn_save">Save</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Link membership card -->
+<dialog id="dlg-card">
+    <form id="form-card" novalidate>
+        <h2 data-i18n="card_title">Link a membership card</h2>
+
+        <label><span data-i18n="card_find">Find the customer</span>
+            <input id="c-search" type="search" autocomplete="off"
+                   data-i18n-placeholder="card_search_ph" placeholder="Name, email or membership number"></label>
+
+        <div class="table-wrap small" style="margin-bottom:12px">
+            <table>
+                <thead><tr>
+                    <th data-i18n="col_name">Name</th>
+                    <th data-i18n="card_col_email">Email</th>
+                    <th data-i18n="card_col_member">Membership</th>
+                    <th data-i18n="card_col_card">Card</th>
+                    <th></th>
+                </tr></thead>
+                <tbody id="c-rows"></tbody>
+            </table>
+            <p id="c-empty" class="empty" hidden></p>
+        </div>
+
+        <p class="picked" id="c-picked"></p>
+
+        <label><span data-i18n="card_uid">Card UID</span>
+            <input id="c-uid" maxlength="48" autocomplete="off" spellcheck="false"
+                   data-i18n-placeholder="card_uid_ph" placeholder="e.g. A5 C7 4D 06">
+            <small data-i18n="card_uid_hint">Tap the card on the reader and the UID fills in, or type it (hex digits).</small></label>
+
+        <p class="form-error" id="card-error" role="alert"></p>
         <div class="dlg-actions">
             <button type="button" class="btn btn-ghost" data-close data-i18n="btn_cancel">Cancel</button>
             <button type="submit" class="btn btn-primary" data-i18n="btn_save">Save</button>

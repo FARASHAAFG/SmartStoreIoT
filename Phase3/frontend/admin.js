@@ -7,6 +7,21 @@ const API = "/api";
 const I18N = {
   en: {
     title_admin: "SmartStore | Inventory", summary_label: "Summary",
+    btn_card: "Link membership card", card_title: "Link a membership card",
+    card_find: "Find the customer", card_search_ph: "Name, email or membership number",
+    card_col_email: "Email", card_col_member: "Membership", card_col_card: "Card",
+    card_none: "None", card_select: "Select", card_empty: "No customers yet.",
+    card_empty_search: "No customer matches your search.",
+    card_pick_prompt: "Select a customer above.",
+    card_picked_new: "{name} ({num}) — no card linked yet",
+    card_picked_replace: "{name} ({num}) — currently linked to {card}. Saving replaces that card.",
+    card_uid: "Card UID", card_uid_ph: "e.g. A5 C7 4D 06",
+    card_uid_hint: "Tap the card on the reader and the UID fills in, or type it (hex digits).",
+    card_read: "Card read: {uid}", ok_card_linked: "Card linked to {name}.",
+    err_no_customer: "Select a customer first.",
+    err_invalid_card_uid: "Card UID must be 1 to 32 hex digits (0–9, A–F).",
+    err_customer_not_found: "Customer account not found.",
+    err_card_taken: "This card is already assigned to another account.",
     title: "Inventory Management", subtitle: "Products, tags and stock for the store.",
     nav_home: "Home", nav_account: "My Account",
     stat_products: "Products", stat_units: "Units in stock", stat_low: "Low stock",
@@ -65,6 +80,21 @@ const I18N = {
   },
   fr: {
     title_admin: "SmartStore | Stocks", summary_label: "Résumé",
+    btn_card: "Associer une carte de membre", card_title: "Associer une carte de membre",
+    card_find: "Trouver le client", card_search_ph: "Nom, courriel ou numéro de membre",
+    card_col_email: "Courriel", card_col_member: "Adhésion", card_col_card: "Carte",
+    card_none: "Aucune", card_select: "Choisir", card_empty: "Aucun client pour le moment.",
+    card_empty_search: "Aucun client ne correspond à la recherche.",
+    card_pick_prompt: "Choisissez un client ci-dessus.",
+    card_picked_new: "{name} ({num}) — aucune carte associée",
+    card_picked_replace: "{name} ({num}) — actuellement associé à {card}. L’enregistrement remplace cette carte.",
+    card_uid: "UID de la carte", card_uid_ph: "p. ex. A5 C7 4D 06",
+    card_uid_hint: "Appuyez la carte sur le lecteur pour remplir l’UID, ou saisissez-le (chiffres hexadécimaux).",
+    card_read: "Carte lue : {uid}", ok_card_linked: "Carte associée à {name}.",
+    err_no_customer: "Sélectionnez d’abord un client.",
+    err_invalid_card_uid: "L’UID doit contenir de 1 à 32 chiffres hexadécimaux (0–9, A–F).",
+    err_customer_not_found: "Compte client introuvable.",
+    err_card_taken: "Cette carte est déjà associée à un autre compte.",
     title: "Gestion des stocks", subtitle: "Produits, étiquettes et stock du magasin.",
     nav_home: "Accueil", nav_account: "Mon compte",
     stat_products: "Produits", stat_units: "Unités en stock", stat_low: "Stock faible",
@@ -164,13 +194,17 @@ function normalizeEpc(value) {
   return /^[0-9A-F]{1,24}$/.test(epc) ? epc : null;
 }
 
-/* Turn a server error body into a translated message. */
-function errorText(body) {
-  if (!body || !body.code) return t("err_server_error");
-  const key = "err_" + body.code;
-  if (!I18N.en[key]) return body.error || t("err_server_error");
-  const x = body.detail || (body.epcs && body.epcs[0]) || "";
-  return t(key, { x });
+/* Turn a server error body into a readable message: translated when the server
+   sends a known error code, else the server's own text, else a generic message
+   that includes the HTTP status so the cause can be found (e.g. 404 = route missing,
+   500 = see the Flask console). */
+function errorText(body, status) {
+  if (body && body.code && I18N.en["err_" + body.code]) {
+    const x = body.detail || (body.epcs && body.epcs[0]) || "";
+    return t("err_" + body.code, { x });
+  }
+  if (body && body.error) return body.error;
+  return t("err_server_error") + (status ? ` (HTTP ${status})` : "");
 }
 
 async function api(path, options = {}) {
@@ -187,7 +221,7 @@ async function api(path, options = {}) {
   let body = {};
   try { body = await response.json(); } catch (e) {}
   if (!response.ok) {
-    const err = new Error(errorText(body));
+    const err = new Error(errorText(body, response.status));
     err.status = response.status; err.body = body;
     throw err;
   }
@@ -450,6 +484,107 @@ $("form-receive").addEventListener("submit", async e => {
   }
 });
 
+/* ---------- link a membership card to a customer account ---------- */
+
+let cardCustomer = null;   // customer chosen in the dialog
+let cardTimer = null;      // polls the card reader while the dialog is open
+let cardSearchTimer = null;
+
+function showCardPicked() {
+  $("c-picked").textContent = !cardCustomer ? t("card_pick_prompt")
+    : cardCustomer.card_id
+      ? t("card_picked_replace", { name: cardCustomer.name, num: cardCustomer.membership_number, card: cardCustomer.card_id })
+      : t("card_picked_new", { name: cardCustomer.name, num: cardCustomer.membership_number });
+}
+
+function renderCustomers(customers, query) {
+  $("c-rows").replaceChildren(...customers.map(c =>
+    h("tr", { class: cardCustomer && cardCustomer.user_id === c.user_id ? "row-low" : "" },
+      h("td", {}, c.name),
+      h("td", {}, c.email),
+      h("td", {}, c.membership_number),
+      h("td", {}, c.card_id || t("card_none")),
+      h("td", {}, h("button", { type: "button", class: "btn btn-outline btn-sm",
+        onclick: () => { cardCustomer = c; showCardPicked(); renderCustomers(customers, query); $("c-uid").focus(); } },
+        t("card_select"))))));
+
+  const note = $("c-empty");
+  note.hidden = customers.length > 0;
+  note.textContent = query ? t("card_empty_search") : t("card_empty");
+}
+
+async function loadCustomers() {
+  const query = $("c-search").value.trim();
+  try {
+    const data = await api("/admin/customers" + (query ? "?q=" + encodeURIComponent(query) : ""));
+    renderCustomers(data.customers, query);
+  } catch (err) { $("card-error").textContent = err.message; }
+}
+
+// The ESP32 reader publishes taps to /api/membership/last-card (same as the cart page).
+const readerCard = () =>
+  fetch(API + "/membership/last-card", { credentials: "same-origin" }).then(r => r.json());
+
+async function startCardWatch() {
+  stopCardWatch();
+  let lastScan;
+  try { lastScan = (await readerCard()).scan_id; }
+  catch (e) { return; }                      // reader unavailable: the UID can still be typed
+
+  cardTimer = setInterval(async () => {
+    try {
+      const card = await readerCard();
+      if (card.uid && card.scan_id !== lastScan) {
+        lastScan = card.scan_id;
+        $("c-uid").value = card.uid;
+        toast(t("card_read", { uid: card.uid }));
+      }
+    } catch (e) { /* try again next second */ }
+  }, 1000);
+}
+
+function stopCardWatch() { clearInterval(cardTimer); cardTimer = null; }
+
+function openCardDialog() {
+  cardCustomer = null;
+  $("c-search").value = "";
+  $("c-uid").value = "";
+  $("card-error").textContent = "";
+  showCardPicked();
+  $("c-rows").replaceChildren();
+  $("c-empty").hidden = true;
+  $("dlg-card").showModal();
+  loadCustomers();
+  startCardWatch();
+  $("c-search").focus();
+}
+
+$("btn-card").addEventListener("click", openCardDialog);
+
+$("c-search").addEventListener("input", () => {
+  clearTimeout(cardSearchTimer);
+  cardSearchTimer = setTimeout(loadCustomers, 250);
+});
+
+$("form-card").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("card-error").textContent = "";
+
+  if (!cardCustomer) { $("card-error").textContent = t("err_no_customer"); return; }
+
+  try {
+    const data = await api(`/admin/customers/${cardCustomer.user_id}/card`, {
+      method: "POST",
+      body: JSON.stringify({ card_id: $("c-uid").value }),
+    });
+    toast(t("ok_card_linked", { name: data.customer.name }));
+    closeDialog($("dlg-card"));
+  } catch (err) {
+    $("card-error").textContent = err.message;
+    toast(err.message, true);
+  }
+});
+
 /* ---------- history ---------- */
 
 async function openHistory(product) {
@@ -495,11 +630,12 @@ $("confirm-delete").addEventListener("click", async () => {
 function closeDialog(dialog) {
   if (dialog.id === "dlg-product") productTags.stop();
   if (dialog.id === "dlg-receive") receiveTags.stop();
+  if (dialog.id === "dlg-card") stopCardWatch();
   dialog.close();
 }
 
 document.querySelectorAll("dialog").forEach(dialog => {
-  dialog.addEventListener("close", () => { productTags.stop(); receiveTags.stop(); });
+  dialog.addEventListener("close", () => { productTags.stop(); receiveTags.stop(); stopCardWatch(); });
   dialog.querySelectorAll("[data-close]").forEach(btn =>
     btn.addEventListener("click", () => closeDialog(dialog)));
 });
@@ -516,6 +652,7 @@ document.addEventListener("smartstore:languagechange", () => {
   productTags.relabel(); receiveTags.relabel();
   $("product-title").textContent = t(editingId ? "form_edit_title" : "form_add_title");
   showPicked();
+  showCardPicked();
   renderRows($("search").value.trim());
   if (!$("adm-main").hidden) loadProducts().catch(() => {});
 });
