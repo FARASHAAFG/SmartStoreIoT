@@ -35,12 +35,14 @@ const money = SmartStore.money;
 function showMessage(key, error = false, vars) {
     setText(cartMessage, key, vars);
     cartMessage.classList.toggle("error", error);
+    SmartStore.notify(key, vars, error);
 }
 
 // Show an error (translated when possible) under the cart.
 function showFailure(error) {
     showError(cartMessage, error);
     cartMessage.classList.add("error");
+    SmartStore.showToast(cartMessage.textContent, true);
 }
 
 function clearMessage() {
@@ -52,11 +54,13 @@ function clearMessage() {
 function setFeedback(element, key, error = false) {
     setText(element, key);
     element.classList.toggle("error", error);
+    if (error) SmartStore.notify(key, undefined, true);
 }
 
 function setFeedbackError(element, err) {
     showError(element, err);
     element.classList.add("error");
+    SmartStore.showToast(element.textContent, true);
 }
 
 function createIcon(name) {
@@ -236,6 +240,8 @@ async function loadCart() {
             cache: "no-store"
         });
 
+        const previousCart = currentCart;
+        const shouldNotifyAdditions = lastCart !== null && checkoutStage === "idle";
         currentCart = data;
 
         const snapshot = JSON.stringify(data);
@@ -246,6 +252,13 @@ async function loadCart() {
         }
 
         if (snapshot !== lastCart) {
+            if (shouldNotifyAdditions && previousCart) {
+                const previousEpcs = new Set((previousCart.items || []).map(item => item.epc));
+                const addedCount = (data.items || []).filter(item => !previousEpcs.has(item.epc)).length;
+                if (addedCount > 0) {
+                    SmartStore.notify("msg_cart_added", { n: addedCount });
+                }
+            }
             renderCart(data);
             lastCart = snapshot;
         }
@@ -474,6 +487,7 @@ async function identifyMember() {
         selectedCustomer = profile.customer;
 
         setFeedback(feedback, "co_recognized");
+        SmartStore.notify("co_recognized");
         SmartStore.refreshSession?.();   // greet the recognized member
 
         showOrderConfirmation("member");
@@ -498,6 +512,7 @@ async function continueAsGuest() {
 
         selectedCustomer = null;
         SmartStore.refreshSession?.();   // the session was logged out
+        SmartStore.notify("co_guest_ready");
         showOrderConfirmation("guest");
     } catch (error) {
         setFeedback(feedback, "co_guest_fail", true);

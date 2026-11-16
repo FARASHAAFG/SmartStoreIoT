@@ -114,6 +114,59 @@
         el.setAttribute(attr, t(key, vars));
     }
 
+    /* ---------- notifications ---------- */
+
+    function showToast(message, isError) {
+        let container = document.getElementById("toasts");
+        if (!container) {
+            container = document.createElement("div");
+            container.id = "toasts";
+            container.className = "toasts";
+            container.setAttribute("aria-live", "polite");
+            document.body.appendChild(container);
+        }
+
+        const toast = document.createElement("div");
+        toast.className = "toast" + (isError ? " error" : "");
+        toast.setAttribute("role", isError ? "alert" : "status");
+        toast.setAttribute("aria-atomic", "true");
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 6000);
+    }
+
+    function notify(key, vars, isError) {
+        showToast(t(key, vars), isError);
+    }
+
+    function notifyOnNextPage(key, vars) {
+        try {
+            sessionStorage.setItem("smartstore-notification", JSON.stringify({ key, vars }));
+        } catch (error) {
+            notify(key, vars);
+        }
+    }
+
+    function showPendingNotification() {
+        let pending;
+        try {
+            pending = sessionStorage.getItem("smartstore-notification");
+            sessionStorage.removeItem("smartstore-notification");
+        } catch (error) {
+            return;
+        }
+        if (!pending) return;
+
+        try {
+            const notification = JSON.parse(pending);
+            if (notification && typeof notification.key === "string") {
+                notify(notification.key, notification.vars);
+            }
+        } catch (error) {
+            return;
+        }
+    }
+
     /* ---------- errors ---------- */
 
     function makeError(key, vars) {
@@ -205,6 +258,9 @@
             err_load_transactions: "Could not load transactions.",
             err_load_details: "Could not load transaction details.",
             err_logout: "Could not log out. Please try again.",
+            msg_login_success: "Signed in successfully.",
+            msg_registration_success: "Account created successfully.",
+            msg_logout_success: "Signed out successfully.",
 
             title_cart: "SmartStore | Shopping Cart", cart_eyebrow: "SELF CHECKOUT",
             cart_h1: "Your Shopping Cart",
@@ -217,6 +273,8 @@
             checkout_btn: "Proceed to Checkout", clear_cart: "Clear Cart",
             each_qty: "{m:price} each · Qty: {n}",
             remove_one: "Remove one item", remove_one_named: "Remove one {name}",
+            msg_cart_added_one: "Product added to your cart successfully.",
+            msg_cart_added_other: "{n} products added to your cart successfully.",
             msg_removed: "Item removed from your cart.", msg_cleared: "Your cart has been cleared.",
             confirm_clear: "Are you sure you want to remove all items from your cart?",
             err_cart_trouble: "We're having trouble updating your cart. Please ask for assistance.",
@@ -236,6 +294,7 @@
             co_not_recognized: "Membership card could not be recognized.",
             co_preparing_guest: "Preparing guest checkout...",
             co_guest_fail: "Unable to start guest checkout. Please try again.",
+            co_guest_ready: "Guest checkout selected.",
             co_confirm_h: "Confirm Your Order",
             co_confirm_desc: "Please review your order before proceeding to simulated payment.",
             co_customer_type: "Customer type", co_member: "Member", co_guest: "Guest",
@@ -262,7 +321,7 @@
             rc_simulated_note: "Payment was simulated; no real payment was processed.",
             rc_new_session: "Start New Shopping Session",
             rc_cart_not_cleared: "Your sale was recorded, but the RFID cart could not be cleared. Please ask for assistance before the next customer.",
-            msg_sale_recorded: "Sale recorded successfully.",
+            msg_sale_recorded: "Checkout completed successfully.",
             msg_checkout_cancelled: "Checkout cancelled. Your scanned items remain in the cart.",
             msg_ready_next: "Ready for the next customer.",
         },
@@ -315,6 +374,9 @@
             err_load_transactions: "Impossible de charger les transactions.",
             err_load_details: "Impossible de charger les détails de la transaction.",
             err_logout: "Impossible de se déconnecter. Veuillez réessayer.",
+            msg_login_success: "Vous êtes connecté avec succès.",
+            msg_registration_success: "Votre compte a été créé avec succès.",
+            msg_logout_success: "Vous êtes déconnecté.",
 
             title_cart: "SmartStore | Panier", cart_eyebrow: "CAISSE LIBRE-SERVICE",
             cart_h1: "Votre panier",
@@ -327,6 +389,8 @@
             checkout_btn: "Passer à la caisse", clear_cart: "Vider le panier",
             each_qty: "{m:price} chacun · Qté : {n}",
             remove_one: "Retirer un article", remove_one_named: "Retirer un exemplaire de {name}",
+            msg_cart_added_one: "Produit ajouté à votre panier avec succès.",
+            msg_cart_added_other: "{n} produits ajoutés à votre panier avec succès.",
             msg_removed: "Article retiré de votre panier.", msg_cleared: "Votre panier a été vidé.",
             confirm_clear: "Voulez-vous vraiment retirer tous les articles de votre panier ?",
             err_cart_trouble: "Nous avons de la difficulté à mettre à jour votre panier. Veuillez demander de l’aide.",
@@ -346,6 +410,7 @@
             co_not_recognized: "La carte de membre n’a pas pu être reconnue.",
             co_preparing_guest: "Préparation du paiement invité…",
             co_guest_fail: "Impossible de démarrer le paiement invité. Veuillez réessayer.",
+            co_guest_ready: "Paiement invité sélectionné.",
             co_confirm_h: "Confirmez votre commande",
             co_confirm_desc: "Veuillez vérifier votre commande avant de passer au paiement simulé.",
             co_customer_type: "Type de client", co_member: "Membre", co_guest: "Invité",
@@ -372,7 +437,7 @@
             rc_simulated_note: "Le paiement était simulé ; aucun paiement réel n’a été effectué.",
             rc_new_session: "Commencer une nouvelle session d’achats",
             rc_cart_not_cleared: "Votre vente a été enregistrée, mais le panier RFID n’a pas pu être vidé. Veuillez demander de l’aide avant le client suivant.",
-            msg_sale_recorded: "Vente enregistrée avec succès.",
+            msg_sale_recorded: "Paiement terminé avec succès.",
             msg_checkout_cancelled: "Paiement annulé. Vos articles numérisés restent dans le panier.",
             msg_ready_next: "Prêt pour le client suivant.",
         },
@@ -383,5 +448,6 @@
         setLang, addMessages, has, t, apply,
         setText, setRaw, setMoney, setDate, setAttr,
         money, formatDate, makeError, fromResponse, showError,
+        showToast, notify, notifyOnNextPage, showPendingNotification,
     };
 })();

@@ -184,9 +184,7 @@ function todayIso() {
 }
 
 function toast(message, isError = false) {
-  const el = h("div", { class: "toast" + (isError ? " error" : "") }, message);
-  $("toasts").append(el);
-  setTimeout(() => el.remove(), 4500);
+  SmartStore.showToast(message, isError);
 }
 
 function normalizeEpc(value) {

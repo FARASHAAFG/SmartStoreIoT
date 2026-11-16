@@ -164,9 +164,11 @@
                     method: "POST", credentials: "same-origin"
                 });
                 if (!response.ok) throw new Error();
+                S.notifyOnNextPage("msg_logout_success");
                 window.location.reload();
             } catch (e) {
                 S.setText(status, "err_logout");
+                S.notify("err_logout", undefined, true);
             }
         });
 
@@ -215,6 +217,9 @@
         document.addEventListener("smartstore:languagechange", updateControls);
 
         updateControls();
-        if (S) refreshSession();
+        if (S) {
+            S.showPendingNotification();
+            refreshSession();
+        }
     });
 })();

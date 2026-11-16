@@ -47,6 +47,7 @@ function showMessage(key, isError = false, vars) {
 
     setText(element, key, vars);
     element.classList.toggle("error", isError);
+    if (!isError) SmartStore.notify(key, vars);
 }
 
 // Display an error (translated when possible) on the current page.
@@ -56,6 +57,7 @@ function showFailure(error, fallbackKey) {
 
     showError(element, error, fallbackKey);
     element.classList.add("error");
+    SmartStore.showToast(element.textContent, true);
 }
 
 
@@ -84,6 +86,7 @@ async function loginCustomer(event) {
                 : fromResponse(data, "err_login_generic");
         }
 
+        SmartStore.notifyOnNextPage("msg_login_success");
         window.location.href = data.customer && data.customer.role === 1 ? "admin.html" : "account.html";
 
     } catch (error) {
@@ -117,6 +120,7 @@ async function registerCustomer(event) {
         }
 
         // Registration automatically logs the customer in.
+        SmartStore.notifyOnNextPage("msg_registration_success");
         window.location.href = "account.html";
 
     } catch (error) {
@@ -316,6 +320,7 @@ async function logoutCustomer() {
             throw makeError("err_logout");
         }
 
+        SmartStore.notifyOnNextPage("msg_logout_success");
         window.location.href = "index.html";
 
     } catch (error) {
