@@ -14,6 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (registerForm) {
         registerForm.addEventListener("submit", registerCustomer);
+        watchRegisterCard();
     }
 
     if (logoutButton) {
@@ -102,6 +103,7 @@ async function registerCustomer(event) {
     const name = document.getElementById("name").value.trim();
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
+    const card_id = document.getElementById("card_id").value.trim();
 
     try {
         const response = await fetch(`${API_URL}/customer/register`, {
@@ -110,7 +112,7 @@ async function registerCustomer(event) {
                 "Content-Type": "application/json"
             },
             credentials: "same-origin",
-            body: JSON.stringify({ name, email, password })
+            body: JSON.stringify({ name, email, password, card_id })
         });
 
         const data = await response.json();
@@ -126,6 +128,38 @@ async function registerCustomer(event) {
     } catch (error) {
         showFailure(error, "err_register_failed");
     }
+}
+
+
+// When a card is tapped on the ESP32 reader (MQTT), fill in the card field
+// (same idea as the membership step at checkout)
+async function watchRegisterCard() {
+    const cardInput = document.getElementById("card_id");
+
+    // Ignore cards that were tapped before this page was opened
+    let lastScanId;
+
+    try {
+        const response = await fetch(`${API_URL}/membership/last-card`, { cache: "no-store" });
+        lastScanId = (await response.json()).scan_id;
+    } catch (error) {
+        return; // the UID can still be typed in by hand
+    }
+
+    setInterval(async () => {
+        try {
+            const response = await fetch(`${API_URL}/membership/last-card`, { cache: "no-store" });
+            const card = await response.json();
+
+            if (card.uid && card.scan_id !== lastScanId) {
+                lastScanId = card.scan_id;
+                cardInput.value = card.uid;
+                showMessage("msg_card_detected", false, { uid: card.uid });
+            }
+        } catch (error) {
+            // Try again on the next second
+        }
+    }, 1000);
 }
 
 

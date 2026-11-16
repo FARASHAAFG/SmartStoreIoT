@@ -241,6 +241,11 @@
             fullname: "Full name", name_ph: "Enter your name", password_new_ph: "At least 8 characters",
             reg_btn: "Create Account", have_account: "Already have an account?", login_short: "Log in",
             err_register_failed: "Registration failed.",
+            reg_card_label: "Membership card (optional)", reg_card_ph: "Tap your card on the card reader",
+            reg_card_hint: "Link your card now to earn points at checkout. You can also leave this empty.",
+            msg_card_detected: "Card detected: {uid}",
+            err_invalid_card_uid: "Card UID must be 1 to 32 hex digits (0–9, A–F).",
+            err_card_taken: "This card is already linked to another account.",
 
             title_account: "SmartStore | My Account", acct_h1: "My SmartStore Account",
             acct_sub: "Manage your membership and view your purchases.",
@@ -357,6 +362,11 @@
             fullname: "Nom complet", name_ph: "Entrez votre nom", password_new_ph: "Au moins 8 caractères",
             reg_btn: "Créer mon compte", have_account: "Vous avez déjà un compte ?", login_short: "Se connecter",
             err_register_failed: "Échec de l’inscription.",
+            reg_card_label: "Carte de membre (facultatif)", reg_card_ph: "Passez votre carte sur le lecteur",
+            reg_card_hint: "Associez votre carte maintenant pour accumuler des points à la caisse. Vous pouvez aussi laisser ce champ vide.",
+            msg_card_detected: "Carte détectée : {uid}",
+            err_invalid_card_uid: "L’UID doit contenir de 1 à 32 chiffres hexadécimaux (0–9, A–F).",
+            err_card_taken: "Cette carte est déjà associée à un autre compte.",
 
             title_account: "SmartStore | Mon compte", acct_h1: "Mon compte SmartStore",
             acct_sub: "Gérez votre adhésion et consultez vos achats.",

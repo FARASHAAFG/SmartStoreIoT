@@ -131,8 +131,8 @@ def register_customer():
     name = data.get("name")
     email = data.get("email")
     password = data.get("password")
+    raw_card = data.get("card_id")
     card_id = None
-    #card_id = data.get("card_id") or None
 
     if not isinstance(name, str) or not name.strip():
         return _json_error("Name is required.")
@@ -140,6 +140,12 @@ def register_customer():
         return _json_error("A valid email address is required.")
     if not isinstance(password, str) or len(password) < 8:
         return _json_error("Password must contain at least 8 characters.")
+
+    # Optional membership card, tapped on the reader during registration
+    if isinstance(raw_card, str) and raw_card.strip():
+        card_id = normalize_card_uid(raw_card)
+        if not card_id:
+            return _json_error("A valid RFID card UID is required.", 400, "invalid_card_uid")
 
     email = email.strip().lower()
     connection = get_db()
@@ -149,6 +155,12 @@ def register_customer():
         ).fetchone()
         if existing:
             return _json_error("An account with this email already exists.", 409)
+
+        # A card can only belong to one account
+        if card_id and connection.execute(
+            "SELECT 1 FROM users WHERE card_id = ?", (card_id,)
+        ).fetchone():
+            return _json_error("This RFID card is already assigned.", 409, "card_taken")
 
         membership_number = _make_membership_number(connection)
         cursor = connection.execute(
