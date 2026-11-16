@@ -158,9 +158,10 @@ def save_epc(epc):
             file.write(epc + "\n")
 
 
+
 def get_cart_data():
     items = []
-    total = 0
+    subtotal = Decimal("0.00")
 
     for epc in scanned_tags:
         product = products.get(epc)
@@ -168,21 +169,33 @@ def get_cart_data():
         if not product:
             continue
 
-        price = float(product["price"])
+        price = Decimal(str(product["price"]))
 
         items.append({
             "product_id": product["product_id"],
             "epc": epc,
             "name": product["name"],
-            "price": price,
+            "price": float(price),
             "quantity": 1
         })
 
-        total += price
+        subtotal += price
+
+    subtotal = subtotal.quantize(Decimal("0.01"))
+    gst = (subtotal * Decimal("0.05")).quantize(
+        Decimal("0.01"), rounding="ROUND_HALF_UP"
+    )
+    qst = (subtotal * Decimal("0.09975")).quantize(
+        Decimal("0.01"), rounding="ROUND_HALF_UP"
+    )
+    total = subtotal + gst + qst
 
     return {
         "items": items,
-        "total": round(total, 2),
+        "subtotal": float(subtotal),
+        "gst": float(gst),
+        "qst": float(qst),
+        "total": float(total),
         "item_count": len(items)
     }
 

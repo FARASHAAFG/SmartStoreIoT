@@ -11,6 +11,8 @@ const itemCount = document.getElementById("itemCount");
 const summaryCount = document.getElementById("summaryCount");
 const subtotal = document.getElementById("subtotal");
 const cartTotal = document.getElementById("cartTotal");
+const cartGst = document.getElementById("cartGst");
+const cartQst = document.getElementById("cartQst");
 const clearCartBtn = document.getElementById("clearCartBtn");
 const checkoutBtn = document.getElementById("checkoutBtn");
 const cartMessage = document.getElementById("cartMessage");
@@ -157,7 +159,9 @@ function renderCart(data) {
     setText(itemCount, "items_in_cart", { n: items.length });
 
     summaryCount.textContent = items.length;
-    setMoney(subtotal, data.total);
+    setMoney(subtotal, data.subtotal);
+    setMoney(cartGst, data.gst);
+    setMoney(cartQst, data.qst);
     setMoney(cartTotal, data.total);
 
     checkoutBtn.disabled =
@@ -207,7 +211,7 @@ function renderCart(data) {
             });
 
             details.append(name, quantity);
-
+            
             const price = document.createElement("span");
             price.className = "product-price";
             setMoney(price, product.price * product.epcs.length);
@@ -412,7 +416,8 @@ async function startCheckout() {
             ></button>
         </div>
     `);
-
+    
+    
     document.getElementById("scanMembershipBtn")
         .addEventListener("click", identifyMember);
 
@@ -575,6 +580,9 @@ function showOrderConfirmation(customerType) {
     // New RFID scans after this point will not be included.
     orderSnapshot = currentCart.items.map(item => ({ ...item }));
 
+    const subtotalAmount = Number(currentCart.subtotal);
+    const gst = Number(currentCart.gst);
+    const qst = Number(currentCart.qst);
     const total = Number(currentCart.total);
 
     checkoutStage = "confirmation";
@@ -598,10 +606,15 @@ function showOrderConfirmation(customerType) {
                 <strong>${itemCountForOrder}</strong>
             </p>
 
+            <p>Subtotal: <strong data-money="${subtotalAmount}"></strong></p>
+            <p>GST (5%): <strong data-money="${gst}"></strong></p>
+            <p>QST (9.975%): <strong data-money="${qst}"></strong></p>
             <p class="checkout-total">
                 <span data-i18n="total"></span>
                 <strong data-money="${total}"></strong>
             </p>
+            
+            
         </div>
 
         <p class="checkout-description"
@@ -647,10 +660,14 @@ function showOrderConfirmation(customerType) {
 function showPaymentStep() {
     checkoutStage = "payment";
 
-    const total = orderSnapshot.reduce(
-        (sum, item) => sum + Number(item.price),
+    const subtotalCents = orderSnapshot.reduce(
+        (sum, item) => sum + Math.round(Number(item.price) * 100),
         0
     );
+    const subtotalAmount = subtotalCents / 100;
+    const gst = Math.round(subtotalCents * 0.05) / 100;
+    const qst = Math.round(subtotalCents * 0.09975) / 100;
+    const total = subtotalAmount + gst + qst;
 
     setPanel(`
         <h2 data-i18n="pay_h"></h2>
@@ -663,6 +680,9 @@ function showPaymentStep() {
                 <strong data-i18n="pay_simulated"></strong>
             </p>
 
+            <p>Subtotal: <strong data-money="${subtotalAmount}"></strong></p>
+            <p>GST (5%): <strong data-money="${gst}"></strong></p>
+            <p>QST (9.975%): <strong data-money="${qst}"></strong></p>
             <p class="checkout-total">
                 <span data-i18n="pay_amount"></span>
                 <strong data-money="${total}"></strong>
@@ -792,6 +812,7 @@ function textElement(tag, key, vars, className) {
     return element;
 }
 
+
 function showReceipt(sale, purchasedItems, cartCleared) {
     checkoutPanel.classList.add("hidden");
     receiptPanel.classList.remove("hidden");
@@ -863,15 +884,34 @@ function showReceipt(sale, purchasedItems, cartCleared) {
         itemsSection.appendChild(row);
     }
 
+    const taxes = document.createElement("div");
+    taxes.className = "receipt-details";
+
+    for (const [label, amount] of [
+        ["Subtotal", sale.subtotal],
+        ["GST (5%)", sale.gst],
+        ["QST (9.975%)", sale.qst]
+    ]) {
+        const line = document.createElement("p");
+        const value = document.createElement("strong");
+
+        line.append(`${label}: `, value);
+        setMoney(value, amount);
+
+        taxes.appendChild(line);
+    }
+
     const total = textElement("p", "rc_total_paid", { amount: sale.total }, "receipt-total");
     const note = textElement("p", "rc_simulated_note", null, "checkout-feedback");
     const nextButton = textElement("button", "rc_new_session", null, "checkout-action");
+
     nextButton.addEventListener("click", resetCheckout);
 
     receiptPanel.append(
         success,
         details,
         itemsSection,
+        taxes,
         total,
         note,
         nextButton
@@ -909,11 +949,19 @@ function cancelCheckout() {
 }
 
 async function resetCheckout() {
-    try { await apiRequest(`${API_URL}/cart/new`, { method: "POST" }); } catch (e) {}
+    try {
+        await apiRequest(`${API_URL}/cart/new`, {
+            method: "POST"
+        });
+    } catch (e) {}
 
     // Log out the member whose card was scanned, so the next customer
     // can't see their account on the kiosk
-    try { await apiRequest(`${API_URL}/customer/logout`, { method: "POST" }); } catch (e) {}
+    try {
+        await apiRequest(`${API_URL}/customer/logout`, {
+            method: "POST"
+        });
+    } catch (e) {}
 
     checkoutStage = "idle";
     selectedCustomer = null;
@@ -942,3 +990,11 @@ loadCart();
 setInterval(loadCart, 1000);
 
 refreshIcons();
+
+
+            
+            
+
+
+            
+            

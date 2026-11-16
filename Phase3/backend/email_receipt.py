@@ -13,7 +13,10 @@ def send_purchase_receipt(
     total,
     points_earned,
     items,
-    membership_number=None
+    membership_number=None,
+    subtotal=None,
+    gst=None,
+    qst=None
 ):
     """
     Send a purchase receipt to a registered SmartStore customer.
@@ -67,8 +70,13 @@ def send_purchase_receipt(
             f"@ ${price:.2f} = ${line_total:.2f}"
         )
 
+    
     receipt_lines.extend([
         "",
+        "------------------",
+        f"Subtotal: ${subtotal:.2f}",
+        f"GST (5%): ${gst:.2f}",
+        f"QST (9.975%): ${qst:.2f}",
         "------------------",
         f"Total Paid: ${total:.2f}",
         f"Loyalty Points Earned: {points_earned}",
@@ -78,6 +86,7 @@ def send_purchase_receipt(
         "",
         "SmartStore IoT"
     ])
+
 
     msg.set_content("\n".join(receipt_lines))
 

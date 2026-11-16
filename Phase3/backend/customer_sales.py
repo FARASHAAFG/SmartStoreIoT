@@ -738,13 +738,22 @@ def complete_sale():
                 (product_id, quantity, float(price))
             )
 
-        # Calculate the final amount and loyalty points.
-        total = total_cents / 100
+        
+        # Calculate subtotal, taxes, and final total.
+        subtotal = Decimal(total_cents) / 100
+        gst = (subtotal * Decimal("0.05")).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        qst = (subtotal * Decimal("0.09975")).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        total = float(subtotal + gst + qst)
 
         if customer_id is not None:
             points_earned = total_cents // 100
         else:
             points_earned = 0
+
 
         sale_date = datetime.now(timezone.utc).isoformat(
             timespec="seconds"
@@ -861,6 +870,9 @@ def complete_sale():
                         transaction_id=transaction_id,
                         sale_date=sale_date,
                         total=total,
+                        subtotal=float(subtotal),
+                        gst=float(gst),
+                        qst=float(qst),
                         points_earned=points_earned,
                         items=[dict(item) for item in receipt_items],
                         membership_number=customer_info["membership_number"]
@@ -879,6 +891,9 @@ def complete_sale():
             "message": "Sale recorded successfully.",
             "transaction_id": transaction_id,
             "date": sale_date,
+            "subtotal": float(subtotal),
+            "gst": float(gst),
+            "qst": float(qst),
             "total": total,
             "points_earned": points_earned,
             "customer_id": customer_id,
