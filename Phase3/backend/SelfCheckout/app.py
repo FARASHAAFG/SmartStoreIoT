@@ -6,6 +6,7 @@ import sqlite3
 from pathlib import Path
 from threading import RLock
 from decimal import Decimal, InvalidOperation
+from uuid import uuid4
 
 from flask import Flask, request, jsonify, send_from_directory, session
 
@@ -77,6 +78,7 @@ lock = RLock()
 # Current shopping session
 scanned_tags = []
 removed_tags = set()
+cart_session_id = uuid4().hex
 
 # All EPCs observed by the reader
 discovered_tags = set()
@@ -366,7 +368,9 @@ def get_discovered_tags():
 @app.route("/api/cart", methods=["GET"])
 def get_cart():
     with lock:
-        return jsonify(get_cart_data())
+        cart = get_cart_data()
+        cart["session_id"] = cart_session_id
+        return jsonify(cart)
 
 
 @app.route("/api/cart/remove", methods=["POST"])
@@ -406,12 +410,16 @@ def clear_cart():
 
 @app.route("/api/cart/new", methods=["POST"])
 def new_cart_session():
+    global cart_session_id
+
     with lock:
         scanned_tags.clear()
         removed_tags.clear()
+        cart_session_id = uuid4().hex
 
         return jsonify({
             "message": "New shopping session started",
+            "session_id": cart_session_id,
             "cart": get_cart_data()
         })
 
