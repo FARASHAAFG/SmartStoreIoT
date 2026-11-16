@@ -11,6 +11,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (loginForm) {
         loginForm.addEventListener("submit", loginCustomer);
         watchCardReader();
+
+        // A card UID typed by hand + Enter, with no email: log in with the card
+        document.getElementById("card_id").addEventListener("keydown", event => {
+            const uid = event.target.value.trim();
+
+            if (event.key === "Enter" && uid && !document.getElementById("email").value.trim()) {
+                event.preventDefault();
+                loginWithCard(uid);
+            }
+        });
     }
 
     if (registerForm) {
@@ -178,12 +188,48 @@ async function watchCardReader() {
             if (card.uid && card.scan_id !== lastScanId) {
                 lastScanId = card.scan_id;
                 cardInput.value = card.uid;
-                showMessage("msg_card_detected", false, { uid: card.uid });
+                loginWithCard(card.uid);
             }
         } catch (error) {
             // Try again on the next second
         }
     }, 1000);
+}
+
+
+// Log in with a membership card instead of email + password
+// (same route the checkout uses to recognize a member)
+async function loginWithCard(uid) {
+    showMessage("msg_card_detected", false, { uid });
+
+    try {
+        const response = await fetch(`${API_URL}/customer/card/scan`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            credentials: "same-origin",
+            body: JSON.stringify({ card_id: uid })
+        });
+
+        if (response.ok) {
+            SmartStore.notifyOnNextPage("msg_card_login");
+            window.location.href = "account.html";
+            return;
+        }
+
+        if (response.status === 404) {
+            // New card: keep the UID in the field so it gets linked
+            // when the customer logs in with their email and password
+            showMessage("msg_card_not_linked", true);
+            return;
+        }
+
+        throw fromResponse(await response.json(), "err_login_generic");
+
+    } catch (error) {
+        showFailure(error, "err_login_generic");
+    }
 }
 
 

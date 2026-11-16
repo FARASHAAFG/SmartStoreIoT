@@ -49,8 +49,8 @@
                     required
                 >
 
-                <!-- Optional: link a new membership card (filled in when a card is tapped on the reader) -->
-                <label for="card_id" data-i18n="card_link_label">Link a membership card (optional)</label>
+                <!-- Membership card: tap a linked card to log in, or tap a new card + email/password to link it -->
+                <label for="card_id" data-i18n="card_link_label">Membership card</label>
                 <input
                     type="text"
                     id="card_id"
@@ -59,7 +59,8 @@
                     autocomplete="off"
                 >
                 <p class="field-hint" data-i18n="card_link_hint">
-                    Got your membership card? Tap it now to link it to your account. Leave this empty to just log in.
+                    Tap your membership card to log in without your email and password.
+                    New card? Enter your email and password too, and it will be linked to your account.
                 </p>
 
                 <button type="submit" class="primary-btn account-submit">
