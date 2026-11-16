@@ -635,6 +635,19 @@ def complete_sale():
 
     data = request.get_json(silent=True) or {}
     items = data.get("items")
+    
+    epcs = data.get("epcs")
+
+    if not isinstance(epcs, list) or not epcs:
+        return _json_error("A non-empty EPC list is required.")
+
+    if not all(isinstance(epc, str) for epc in epcs):
+        return _json_error("Every EPC must be a string.")
+
+    epcs = [epc.strip().upper() for epc in epcs]
+
+    if len(epcs) != len(set(epcs)):
+        return _json_error("Duplicate EPCs are not allowed.")
 
     if not isinstance(items, list) or not items:
         return _json_error("A non-empty items list is required.")
@@ -688,7 +701,48 @@ def complete_sale():
 
         total_cents = 0
         sale_lines = []
+        
+        # Verify every RFID tag belongs to the correct product
+        # and has not already been sold.
+        if len(epcs) != sum(quantities.values()):
+            connection.rollback()
+            return _json_error(
+                "EPC count does not match purchased quantity.", 400
+            )
 
+        epc_counts = {}
+
+        for epc in epcs:
+            tag = connection.execute(
+                """
+                SELECT product_id, sold
+                FROM product_tags
+                WHERE epc = ?
+                """,
+                (epc,),
+            ).fetchone()
+
+            if not tag:
+                connection.rollback()
+                return _json_error(
+                    f"RFID tag {epc} is not registered.", 404
+                )
+
+            if tag["sold"]:
+                connection.rollback()
+                return _json_error(
+                    f"RFID tag {epc} has already been sold.", 409
+                )
+
+            product_id = tag["product_id"]
+            epc_counts[product_id] = epc_counts.get(product_id, 0) + 1
+
+        if epc_counts != quantities:
+            connection.rollback()
+            return _json_error(
+                "RFID tags do not match the purchased products.", 400
+            )
+            
         # Validate products, prices, and available stock.
         for product_id, quantity in quantities.items():
 
@@ -801,6 +855,24 @@ def complete_sale():
                 """,
                 (quantity, product_id),
             )
+            
+        # Mark the exact purchased RFID tags as sold.
+        for epc in epcs:
+            cursor = connection.execute(
+                """
+                UPDATE product_tags
+                SET sold = 1
+                WHERE epc = ? AND sold = 0
+                """,
+                (epc,),
+            )
+
+            if cursor.rowcount != 1:
+                connection.rollback()
+                return _json_error(
+                    f"RFID tag {epc} could not be marked as sold.",
+                    409
+                )
 
         # Award loyalty points only to registered customers.
         if customer_id is not None:

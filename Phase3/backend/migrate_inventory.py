@@ -38,10 +38,24 @@ def migrate():
                 epc          TEXT PRIMARY KEY,
                 product_id   INTEGER NOT NULL,
                 reception_id INTEGER,
+                sold INTEGER NOT NULL DEFAULT 0 CHECK (sold IN (0, 1)),
                 FOREIGN KEY (product_id)   REFERENCES products(product_id),
                 FOREIGN KEY (reception_id) REFERENCES receptions(reception_id)
             )
         """)
+        
+        # Add individual RFID tag sale tracking to existing databases.
+        columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(product_tags)")
+        }
+
+        if "sold" not in columns:
+            connection.execute(
+                "ALTER TABLE product_tags "
+                "ADD COLUMN sold INTEGER NOT NULL DEFAULT 0 "
+                "CHECK (sold IN (0, 1))"
+        )
 
         connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_tags_product ON product_tags(product_id)"

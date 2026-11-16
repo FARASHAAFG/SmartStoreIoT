@@ -763,7 +763,10 @@ async function completeCheckout() {
             headers: {
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({ items })
+            body: JSON.stringify({
+                items,
+                epcs: orderSnapshot.map(item => item.epc)
+            })
         }, "err_purchase_failed");
 
         // The sale has been recorded successfully.
@@ -964,6 +967,20 @@ async function resetCheckout() {
     selectedCustomer = null;
     orderSnapshot = [];
     orderTotals = null;
+    
+    // Ignore scan notifications from the previous customer.
+    lastSeenScan = null;
+    try {
+        const response = await fetch(`${API_URL}/scan/last`, {
+            cache: "no-store"
+        });
+        if (response.ok) {
+            const result = await response.json();
+            lastSeenScan = result.scan_id || null;
+        }
+    } catch (error) {
+        console.error("Could not reset RFID notification:", error);
+    }
 
     checkoutPanel.classList.add("hidden");
     receiptPanel.classList.add("hidden");
@@ -980,6 +997,57 @@ async function resetCheckout() {
 // --------------------------------------------------
 
 checkoutBtn.addEventListener("click", startCheckout);
+
+// Track RFID scan results to display rejection messages.
+let lastSeenScan = null;
+
+async function checkScanStatus() {
+    try {
+        const response = await fetch(`${API_URL}/scan/last`, {
+            cache: "no-store"
+        });
+
+        if (!response.ok) return;
+
+        const result = await response.json();
+
+        if (!result.epc || !result.status) return;
+
+        const scanKey = result.scan_id;
+
+        // Avoid displaying the same result repeatedly.
+        if (scanKey === lastSeenScan) return;
+
+        lastSeenScan = scanKey;
+
+        const scanErrors = {
+        sold: "This RFID tag has already been purchased!",
+        unknown: "Unknown RFID tag. Product not registered!",
+        invalid: "Invalid RFID tag!",
+        out_of_stock: "This product is out of stock!",
+        duplicate: "This item has already been scanned!",
+        removed: "This item was removed from the current session!"
+        };
+
+        if (scanErrors[result.status]) {
+            SmartStore.showToast(scanErrors[result.status], true);
+        }
+    } catch (error) {
+        console.error("Could not check RFID scan status:", error);
+    }
+}
+
+// Remember the current scan without showing an old notification.
+fetch(`${API_URL}/scan/last`)
+    .then(response => response.json())
+    .then(result => {
+        if (result.scan_id) {
+            lastSeenScan = result.scan_id;
+        }
+    })
+    .catch(() => {});
+
+setInterval(checkScanStatus, 1000);
 
 // First cart load
 loadCart();

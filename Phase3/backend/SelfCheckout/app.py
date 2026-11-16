@@ -79,6 +79,7 @@ lock = RLock()
 scanned_tags = []
 removed_tags = set()
 cart_session_id = uuid4().hex
+last_scan_result = None
 
 # All EPCs observed by the reader
 discovered_tags = set()
@@ -200,52 +201,41 @@ def get_cart_data():
     }
 
 
+
 def process_epc(raw_epc):
+    global last_scan_result
+
     epc = normalize_epc(raw_epc)
 
     if not epc:
-        return {
-            "epc": raw_epc,
-            "status": "invalid"
-        }
+        result = {"epc": raw_epc, "status": "invalid"}
+    else:
+        save_epc(epc)
+        product = products.get(epc)
 
-    save_epc(epc)
+        if not product:
+            result = {"epc": epc, "status": "unknown"}
+        elif product.get("sold"):
+            result = {"epc": epc, "status": "sold"}
+        elif product["stock"] <= 0:
+            result = {"epc": epc, "status": "out_of_stock"}
+        elif epc in removed_tags:
+            result = {"epc": epc, "status": "removed"}
+        elif epc in scanned_tags:
+            result = {"epc": epc, "status": "duplicate"}
+        else:
+            scanned_tags.append(epc)
+            print("Product scanned:", product["name"])
+            result = {
+                "epc": epc,
+                "status": "added",
+                "product": product
+            }
 
-    product = products.get(epc)
+    last_scan_result = result.copy()
+    last_scan_result["scan_id"] = uuid4().hex
+    return result
 
-    if not product:
-        return {
-            "epc": epc,
-            "status": "unknown"
-        }
-
-    if product["stock"] <= 0:
-        return {
-            "epc": epc,
-            "status": "out_of_stock"
-        }
-
-    if epc in removed_tags:
-        return {
-            "epc": epc,
-            "status": "removed"
-        }
-
-    if epc in scanned_tags:
-        return {
-            "epc": epc,
-            "status": "duplicate"
-        }
-
-    scanned_tags.append(epc)
-
-    print("Product scanned:", product["name"])
-
-    return {
-        "epc": epc,
-        "status": "added",
-        "product": product
-    }
 
 # ========== FRONTEND ==========
 
@@ -314,6 +304,10 @@ def admin_javascript():
 
 # ========== RFID SCANNING ==========
 
+@app.route("/api/scan/last", methods=["GET"])
+def get_last_scan():
+    return jsonify(last_scan_result or {})
+
 @app.route("/api/scan", methods=["POST"])
 def scan_tag():
     data = request.get_json(silent=True) or {}
@@ -335,7 +329,8 @@ def scan_tag():
         "added": "Product added successfully",
         "duplicate": "Product already scanned",
         "removed": "Product removed from current session",
-        "out_of_stock": "This product is out of stock"
+        "out_of_stock": "This product is out of stock",
+        "sold": "This RFID tag has already been purchased"
     }
 
     return jsonify({
@@ -601,7 +596,8 @@ def load_products_from_database():
                 p.upc,
                 t.epc AS epc,
                 p.producer_company,
-                p.stock
+                p.stock,
+                t.sold AS sold
             FROM product_tags AS t
             JOIN products AS p ON p.product_id = t.product_id
 
@@ -615,7 +611,8 @@ def load_products_from_database():
                 p.upc,
                 p.epc AS epc,
                 p.producer_company,
-                p.stock
+                p.stock,
+                0 AS sold
             FROM products AS p
             WHERE p.epc IS NOT NULL
               AND p.epc NOT IN (SELECT epc FROM product_tags)
