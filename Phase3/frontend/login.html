@@ -49,6 +49,19 @@
                     required
                 >
 
+                <!-- Optional: link a new membership card (filled in when a card is tapped on the reader) -->
+                <label for="card_id" data-i18n="card_link_label">Link a membership card (optional)</label>
+                <input
+                    type="text"
+                    id="card_id"
+                    name="card_id"
+                    placeholder="Tap your card on the card reader" data-i18n-placeholder="card_link_ph"
+                    autocomplete="off"
+                >
+                <p class="field-hint" data-i18n="card_link_hint">
+                    Got your membership card? Tap it now to link it to your account. Leave this empty to just log in.
+                </p>
+
                 <button type="submit" class="primary-btn account-submit">
                     <span data-i18n="login_btn">Log In</span>
                     <i data-lucide="arrow-right"></i>

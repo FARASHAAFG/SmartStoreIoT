@@ -412,7 +412,54 @@ function startCheckout() {
     // Listen for a card tapped on the ESP32 reader
     watchMembershipCard();
 
+    // A customer who is already logged in can continue without a card
+    offerLoggedInCustomer();
+
     checkoutPanel.scrollIntoView({ behavior: "smooth" });
+}
+
+// If a customer is already logged in (email + password), show "Continue as <name>"
+// at the top of the membership step. The sale is linked to the logged-in account,
+// so they earn points without tapping a card.
+async function offerLoggedInCustomer() {
+    let customer;
+
+    try {
+        const response = await fetch(`${API_URL}/customer/me`, { credentials: "same-origin" });
+
+        if (!response.ok) {
+            return; // nobody is logged in: card or guest, like before
+        }
+
+        customer = (await response.json()).customer;
+    } catch (error) {
+        return;
+    }
+
+    // Only for customers (not an admin), and only if still on the membership step
+    if (!customer || customer.role === 1 || checkoutStage !== "membership") {
+        return;
+    }
+
+    const box = document.createElement("div");
+    box.className = "checkout-account";
+
+    const text = document.createElement("p");
+    setText(text, "co_account_p", { name: customer.name });
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "checkout-action";
+    setText(button, "co_account_btn", { name: customer.name });
+
+    button.addEventListener("click", () => {
+        selectedCustomer = customer;
+        SmartStore.notify("co_recognized");
+        showOrderConfirmation("member");
+    });
+
+    box.append(text, button);
+    document.querySelector(".checkout-options").before(box);
 }
 
 // When a card is tapped on the ESP32 reader (MQTT), fill in the UID and identify the member

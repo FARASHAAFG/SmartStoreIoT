@@ -131,8 +131,8 @@ def register_customer():
     name = data.get("name")
     email = data.get("email")
     password = data.get("password")
-    raw_card = data.get("card_id")
     card_id = None
+    #card_id = data.get("card_id") or None
 
     if not isinstance(name, str) or not name.strip():
         return _json_error("Name is required.")
@@ -140,12 +140,6 @@ def register_customer():
         return _json_error("A valid email address is required.")
     if not isinstance(password, str) or len(password) < 8:
         return _json_error("Password must contain at least 8 characters.")
-
-    # Optional membership card, tapped on the reader during registration
-    if isinstance(raw_card, str) and raw_card.strip():
-        card_id = normalize_card_uid(raw_card)
-        if not card_id:
-            return _json_error("A valid RFID card UID is required.", 400, "invalid_card_uid")
 
     email = email.strip().lower()
     connection = get_db()
@@ -155,12 +149,6 @@ def register_customer():
         ).fetchone()
         if existing:
             return _json_error("An account with this email already exists.", 409)
-
-        # A card can only belong to one account
-        if card_id and connection.execute(
-            "SELECT 1 FROM users WHERE card_id = ?", (card_id,)
-        ).fetchone():
-            return _json_error("This RFID card is already assigned.", 409, "card_taken")
 
         membership_number = _make_membership_number(connection)
         cursor = connection.execute(
@@ -192,6 +180,49 @@ def register_customer():
         return _json_error("Email or membership/card identifier is already in use.", 409)
     finally:
         connection.close()
+
+
+@customer_sales.post("/api/customer/card")
+@login_required
+def link_own_card():
+    """
+    A logged-in customer links the membership card they received
+    (tapped on the card reader at the login page) to their own account.
+    """
+    data = request.get_json(silent=True) or {}
+    card_id = normalize_card_uid(data.get("card_id"))
+
+    if not card_id:
+        return _json_error("A valid RFID card UID is required.", 400, "invalid_card_uid")
+
+    user_id = session["user_id"]
+    connection = get_db()
+
+    try:
+        # A card can only belong to one account (linking your own card again is fine)
+        owner = connection.execute(
+            "SELECT user_id FROM users WHERE card_id = ?", (card_id,)
+        ).fetchone()
+
+        if owner and owner["user_id"] != user_id:
+            return _json_error("This RFID card is already assigned.", 409, "card_taken")
+
+        connection.execute(
+            "UPDATE users SET card_id = ? WHERE user_id = ?", (card_id, user_id)
+        )
+        connection.commit()
+
+        user = connection.execute(
+            "SELECT * FROM users WHERE user_id = ?", (user_id,)
+        ).fetchone()
+
+        return jsonify({
+            "message": "Membership card linked.",
+            "customer": _public_user(user),
+        })
+    finally:
+        connection.close()
+
 
 @customer_sales.post("/api/admin/customers/<int:user_id>/card")
 @admin_required

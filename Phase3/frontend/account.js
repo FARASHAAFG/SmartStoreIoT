@@ -10,11 +10,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (loginForm) {
         loginForm.addEventListener("submit", loginCustomer);
+        watchCardReader();
     }
 
     if (registerForm) {
         registerForm.addEventListener("submit", registerCustomer);
-        watchRegisterCard();
     }
 
     if (logoutButton) {
@@ -87,6 +87,31 @@ async function loginCustomer(event) {
                 : fromResponse(data, "err_login_generic");
         }
 
+        // Optional: link the membership card that was tapped on the reader
+        const card_id = document.getElementById("card_id").value.trim();
+
+        if (card_id) {
+            const cardResponse = await fetch(`${API_URL}/customer/card`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                credentials: "same-origin",
+                body: JSON.stringify({ card_id })
+            });
+
+            if (!cardResponse.ok) {
+                // Already logged in at this point: log out again so the customer
+                // can fix the card and try again from the same form
+                await fetch(`${API_URL}/customer/logout`, { method: "POST", credentials: "same-origin" });
+                throw fromResponse(await cardResponse.json(), "err_card_link_failed");
+            }
+
+            SmartStore.notifyOnNextPage("msg_card_linked");
+            window.location.href = data.customer && data.customer.role === 1 ? "admin.html" : "account.html";
+            return;
+        }
+
         SmartStore.notifyOnNextPage("msg_login_success");
         window.location.href = data.customer && data.customer.role === 1 ? "admin.html" : "account.html";
 
@@ -103,7 +128,6 @@ async function registerCustomer(event) {
     const name = document.getElementById("name").value.trim();
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value;
-    const card_id = document.getElementById("card_id").value.trim();
 
     try {
         const response = await fetch(`${API_URL}/customer/register`, {
@@ -112,7 +136,7 @@ async function registerCustomer(event) {
                 "Content-Type": "application/json"
             },
             credentials: "same-origin",
-            body: JSON.stringify({ name, email, password, card_id })
+            body: JSON.stringify({ name, email, password })
         });
 
         const data = await response.json();
@@ -131,9 +155,9 @@ async function registerCustomer(event) {
 }
 
 
-// When a card is tapped on the ESP32 reader (MQTT), fill in the card field
+// Login page: when a card is tapped on the ESP32 reader (MQTT), fill in the card field
 // (same idea as the membership step at checkout)
-async function watchRegisterCard() {
+async function watchCardReader() {
     const cardInput = document.getElementById("card_id");
 
     // Ignore cards that were tapped before this page was opened
