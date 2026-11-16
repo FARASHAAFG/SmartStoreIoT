@@ -7,11 +7,11 @@
 #include <MFRC522.h>
 
 // Wi-Fi settings (the ESP32 only works on 2.4 GHz: turn on "Maximize Compatibility" on an iPhone hotspot)
-const char* ssid = "YOUR_HOTSPOT_NAME";
-const char* password = "YOUR_HOTSPOT_PASSWORD";
+const char* ssid = "Joy";
+const char* password = "hi1234567";
 
 // Raspberry Pi MQTT broker
-const char* mqtt_server = "192.168.X.X"; // hostname -I on the Pi
+const char* mqtt_server = "172.20.10.9"; // hostname -I on the Pi
 const int mqtt_port = 1883;
 
 const char* mqtt_topic = "Membership";
