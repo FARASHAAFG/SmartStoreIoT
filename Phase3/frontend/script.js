@@ -25,6 +25,9 @@ let checkoutStage = "idle";
 let orderSnapshot = [];
 let selectedCustomer = null;
 
+// True when checkout skipped the membership step because the customer was already logged in
+let skippedMembershipStep = false;
+
 // --------------------------------------------------
 // GENERAL HELPERS
 // --------------------------------------------------
@@ -327,9 +330,29 @@ clearCartBtn.addEventListener("click", clearCart);
 // CHECKOUT STEP 1: MEMBERSHIP OR GUEST
 // --------------------------------------------------
 
-function startCheckout() {
+async function startCheckout() {
     if (!currentCart || !currentCart.items || currentCart.items.length === 0) {
         showMessage("msg_scan_first", true);
+        return;
+    }
+
+    // Prevent a double click from starting checkout twice
+    checkoutBtn.disabled = true;
+    clearCartBtn.disabled = true;
+
+    // Already logged in (email + password, or membership card)?
+    // The sale is linked to the logged-in account, so skip the membership step.
+    const customer = await getLoggedInCustomer();
+    skippedMembershipStep = Boolean(customer);
+
+    if (customer) {
+        selectedCustomer = customer;
+
+        checkoutPanel.classList.remove("hidden");
+        receiptPanel.classList.add("hidden");
+
+        showOrderConfirmation("member");
+        checkoutPanel.scrollIntoView({ behavior: "smooth" });
         return;
     }
 
@@ -412,54 +435,24 @@ function startCheckout() {
     // Listen for a card tapped on the ESP32 reader
     watchMembershipCard();
 
-    // A customer who is already logged in can continue without a card
-    offerLoggedInCustomer();
-
     checkoutPanel.scrollIntoView({ behavior: "smooth" });
 }
 
-// If a customer is already logged in (email + password), show "Continue as <name>"
-// at the top of the membership step. The sale is linked to the logged-in account,
-// so they earn points without tapping a card.
-async function offerLoggedInCustomer() {
-    let customer;
-
+// The customer who is logged in on this browser (email + password, or membership card).
+// Returns null for nobody, or for an admin (admins aren't shoppers).
+async function getLoggedInCustomer() {
     try {
         const response = await fetch(`${API_URL}/customer/me`, { credentials: "same-origin" });
 
         if (!response.ok) {
-            return; // nobody is logged in: card or guest, like before
+            return null;
         }
 
-        customer = (await response.json()).customer;
+        const customer = (await response.json()).customer;
+        return customer && customer.role !== 1 ? customer : null;
     } catch (error) {
-        return;
+        return null;
     }
-
-    // Only for customers (not an admin), and only if still on the membership step
-    if (!customer || customer.role === 1 || checkoutStage !== "membership") {
-        return;
-    }
-
-    const box = document.createElement("div");
-    box.className = "checkout-account";
-
-    const text = document.createElement("p");
-    setText(text, "co_account_p", { name: customer.name });
-
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "checkout-action";
-    setText(button, "co_account_btn", { name: customer.name });
-
-    button.addEventListener("click", () => {
-        selectedCustomer = customer;
-        SmartStore.notify("co_recognized");
-        showOrderConfirmation("member");
-    });
-
-    box.append(text, button);
-    document.querySelector(".checkout-options").before(box);
 }
 
 // When a card is tapped on the ESP32 reader (MQTT), fill in the UID and identify the member
@@ -631,8 +624,15 @@ function showOrderConfirmation(customerType) {
         </div>
     `);
 
+    // Back: to the membership step, or to the cart if that step was skipped (already logged in)
     document.getElementById("backToMembershipBtn")
-        .addEventListener("click", startCheckout);
+        .addEventListener("click", () => {
+            if (skippedMembershipStep) {
+                cancelCheckout();
+            } else {
+                startCheckout();
+            }
+        });
 
     document.getElementById("proceedPaymentBtn")
         .addEventListener("click", showPaymentStep);
